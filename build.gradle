@@ -1,0 +1,42 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+//    ext.kotlin_version = "2.0.0" // Kotlin 2.0.0
+    ext.kotlin_version = "2.2.0" // Optional future upgrade
+
+    repositories {
+        google()
+        mavenCentral()
+        jcenter() // legacy, keep for older deps
+        maven { url = uri("https://jitpack.io") }
+        maven { url = uri("https://maven.fpregistry.io/releases") } // Fingerprint SDK
+    }
+
+    dependencies {
+        // Android Gradle Plugin
+        classpath "com.android.tools.build:gradle:8.9.1"
+
+        // Kotlin Gradle Plugin
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+
+        // Compose compiler plugin compatible with Kotlin 2.0.0
+        classpath 'org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.0.21'
+
+        // Hilt plugin (optional, if using Hilt)
+//        classpath "com.google.dagger:hilt-android-gradle-plugin:2.5"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        jcenter() // legacy, keep for older deps
+        maven { url "https://jitpack.io" }
+        maven { url "https://maven.fpregistry.io/releases" }
+    }
+}
+
+// Clean task
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
