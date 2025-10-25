@@ -3,7 +3,11 @@ plugins {
     id 'kotlin-android'
     id 'kotlin-kapt'
     id 'org.jetbrains.kotlin.plugin.compose'
+
+
 }
+
+
 
 android {
     namespace 'com.example.myapplication'
@@ -88,4 +92,7 @@ dependencies {
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
+
+    implementation project(path: ':paymentcheck')
+
 }
