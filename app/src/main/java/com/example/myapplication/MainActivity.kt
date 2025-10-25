@@ -18,6 +18,7 @@ import com.checkout.components.interfaces.model.PaymentMethodName
 import com.checkout.components.interfaces.model.PaymentSessionResponse
 import com.checkout.components.wallet.wrapper.GooglePayFlowCoordinator
 import com.example.paymentcheck.CheckActivity
+import com.example.paymentcheck.OnDataPass
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,16 +27,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity()  {
     // val CALLBACK_URL = "myapp://payment/callback"
 //    private val CALLBACK_URL = "myapp://payment/callback"
 //    private lateinit var coordinator: GooglePayFlowCoordinator
+    var listener: OnDataPass? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val userData = hashMapOf(
+            "id" to "ps_34YsRu8Cqw1rY8kk88O2Dj9tPOi",
+            "paymentSessionToken" to "YmFzZTY0:eyJpZCI6InBzXzM0WXNSdThDcXcxclk4a2s4OE8yRGo5dFBPaSIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMDAwLCJsb2NhbGUiOiJlbi1HQiIsImN1cnJlbmN5IjoiQUVEIiwicGF5bWVudF9tZXRob2RzIjpbeyJ0eXBlIjoicmVtZW1iZXJfbWUiLCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sImVtYWlsIjoidGVzdGFycXVtY2hlY2tAeW9wbWFpbC5jb20iLCJwaG9uZSI6eyJudW1iZXIiOiIzNDA4NzI3NjY3IiwiY291bnRyeV9jb2RlIjoiOTIifSwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9LCJkaXNwbGF5X21vZGUiOiJjaGVja2JveCJ9LHsidHlwZSI6ImNhcmQiLCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sInNjaGVtZV9jaG9pY2VfZW5hYmxlZCI6ZmFsc2UsInN0b3JlX3BheW1lbnRfZGV0YWlscyI6ImRpc2FibGVkIiwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9fSx7InR5cGUiOiJhcHBsZXBheSIsImRpc3BsYXlfbmFtZSI6ImVaaGlyZSIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCIsIm1lcmNoYW50X2NhcGFiaWxpdGllcyI6WyJzdXBwb3J0czNEUyJdLCJzdXBwb3J0ZWRfbmV0d29ya3MiOlsidmlzYSIsIm1hc3RlckNhcmQiLCJhbWV4Il0sInRvdGFsIjp7ImxhYmVsIjoiZVpoaXJlIiwidHlwZSI6ImZpbmFsIiwiYW1vdW50IjoiMTAwIn19LHsidHlwZSI6Imdvb2dsZXBheSIsIm1lcmNoYW50Ijp7ImlkIjoiMDgxMTMwODkzODYyNjg4NDk5ODIiLCJuYW1lIjoiZVpoaXJlIiwib3JpZ2luIjoiaHR0cHM6Ly93d3cuZXpoaXJlLm1lIn0sInRyYW5zYWN0aW9uX2luZm8iOnsidG90YWxfcHJpY2Vfc3RhdHVzIjoiRklOQUwiLCJ0b3RhbF9wcmljZSI6IjEwMCIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCJ9LCJjYXJkX3BhcmFtZXRlcnMiOnsiYWxsb3dlZF9hdXRoX21ldGhvZHMiOlsiUEFOX09OTFkiLCJDUllQVE9HUkFNXzNEUyJdLCJhbGxvd2VkX2NhcmRfbmV0d29ya3MiOlsiVklTQSIsIk1BU1RFUkNBUkQiLCJBTUVYIl19fV0sImZlYXR1cmVfZmxhZ3MiOlsiYW5hbHl0aWNzX29ic2VydmFiaWxpdHlfZW5hYmxlZCIsImNhcmRfZmllbGRzX2VuYWJsZWQiLCJnZXRfd2l0aF9wdWJsaWNfa2V5X2VuYWJsZWQiLCJsb2dzX29ic2VydmFiaWxpdHlfZW5hYmxlZCIsInJpc2tfanNfZW5hYmxlZCIsInVzZV9ub25fYmljX2lkZWFsX2ludGVncmF0aW9uIl0sInJpc2siOnsiZW5hYmxlZCI6ZmFsc2V9LCJtZXJjaGFudF9uYW1lIjoiZVpoaXJlIiwicGF5bWVudF9zZXNzaW9uX3NlY3JldCI6InBzc19jMDAyYzU0My0xNGMyLTQ3NTAtOTI3ZC01ODAwMzJmYzQ3MjUiLCJwYXltZW50X3R5cGUiOiJSZWd1bGFyIiwiaW50ZWdyYXRpb25fZG9tYWluIjoiZGV2aWNlcy5hcGkuc2FuZGJveC5jaGVja291dC5jb20ifQ==",
+            "paymentSessionSecret" to "pss_c002c543-14c2-4750-927d-580032fc4725",
+            "publicKey" to "pk_sbox_awubbtkehjl742o3t5v44vngcyu"
+        )
+
+
         val intent = Intent(this@MainActivity, CheckActivity::class.java)
+        intent.putExtra("userData", userData)
         startActivity(intent)
 
        // CheckoutFuctionImplement()
@@ -46,6 +57,8 @@ class MainActivity : AppCompatActivity() {
 //            checkoutWithGoogle()
 //        }
     }
+
+
 
 //    private suspend fun checkoutWithGoogle() {
 //        val containerView = findViewById<FrameLayout>(R.id.checkoutContainer)

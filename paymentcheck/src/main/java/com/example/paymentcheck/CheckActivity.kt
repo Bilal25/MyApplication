@@ -6,8 +6,6 @@ import android.util.Log
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.checkout.components.core.CheckoutComponentsFactory
 import com.checkout.components.interfaces.Environment
 import com.checkout.components.interfaces.component.CheckoutComponentConfiguration
@@ -23,8 +21,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 
-class CheckActivity : AppCompatActivity() {
+class CheckActivity : AppCompatActivity(),OnDataPass {
     private lateinit var coordinator: GooglePayFlowCoordinator
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,12 +37,32 @@ class CheckActivity : AppCompatActivity() {
 
 
         MainScope().launch {
-            checkoutWithGoogle()
+            val userData = intent.getSerializableExtra("userData") as? HashMap<String, String>
+            var id = ""
+            var paymentSessionToken = ""
+            var paymentSessionSecret = ""
+            var publicKey = ""
+            userData?.let {
+                 id = it["id"]!!
+                 paymentSessionToken = it["paymentSessionToken"]!!
+                 paymentSessionSecret = it["paymentSessionSecret"]!!
+                 publicKey = it["publicKey"]!!
+
+            }
+            checkoutWithGoogle(id,paymentSessionToken,paymentSessionSecret,publicKey)
         }
 
     }
 
-    private suspend fun checkoutWithGoogle() {
+    private suspend fun checkoutWithGoogle(
+        id: String,
+        paymentSessionToken: String,
+        paymentSessionSecret: String,
+        publicKey: String
+    ) {
+        try {
+
+
         val containerView = findViewById<FrameLayout>(R.id.checkoutContainer)
 
         // ✅ Initialize the coordinator
@@ -61,11 +80,11 @@ class CheckActivity : AppCompatActivity() {
         val configuration = CheckoutComponentConfiguration(
             context = this@CheckActivity,
             paymentSession = PaymentSessionResponse(
-                id = "ps_34XzRKDj3DYUGptJApQkOmqHhlT",
-                paymentSessionToken = "YmFzZTY0:eyJpZCI6InBzXzM0WHpSS0RqM0RZVUdwdEpBcFFrT21xSGhsVCIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMDAwLCJsb2NhbGUiOiJlbi1HQiIsImN1cnJlbmN5IjoiQUVEIiwicGF5bWVudF9tZXRob2RzIjpbeyJ0eXBlIjoicmVtZW1iZXJfbWUiLCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sImVtYWlsIjoidGVzdGFycXVtY2hlY2tAeW9wbWFpbC5jb20iLCJwaG9uZSI6eyJudW1iZXIiOiIzNDA4NzI3NjY3IiwiY291bnRyeV9jb2RlIjoiOTIifSwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9LCJkaXNwbGF5X21vZGUiOiJjaGVja2JveCJ9LHsidHlwZSI6ImNhcmQiLCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sInNjaGVtZV9jaG9pY2VfZW5hYmxlZCI6ZmFsc2UsInN0b3JlX3BheW1lbnRfZGV0YWlscyI6ImRpc2FibGVkIiwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9fSx7InR5cGUiOiJhcHBsZXBheSIsImRpc3BsYXlfbmFtZSI6ImVaaGlyZSIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCIsIm1lcmNoYW50X2NhcGFiaWxpdGllcyI6WyJzdXBwb3J0czNEUyJdLCJzdXBwb3J0ZWRfbmV0d29ya3MiOlsidmlzYSIsIm1hc3RlckNhcmQiLCJhbWV4Il0sInRvdGFsIjp7ImxhYmVsIjoiZVpoaXJlIiwidHlwZSI6ImZpbmFsIiwiYW1vdW50IjoiMTAwIn19LHsidHlwZSI6Imdvb2dsZXBheSIsIm1lcmNoYW50Ijp7ImlkIjoiMDgxMTMwODkzODYyNjg4NDk5ODIiLCJuYW1lIjoiZVpoaXJlIiwib3JpZ2luIjoiaHR0cHM6Ly93d3cuZXpoaXJlLm1lIn0sInRyYW5zYWN0aW9uX2luZm8iOnsidG90YWxfcHJpY2Vfc3RhdHVzIjoiRklOQUwiLCJ0b3RhbF9wcmljZSI6IjEwMCIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCJ9LCJjYXJkX3BhcmFtZXRlcnMiOnsiYWxsb3dlZF9hdXRoX21ldGhvZHMiOlsiUEFOX09OTFkiLCJDUllQVE9HUkFNXzNEUyJdLCJhbGxvd2VkX2NhcmRfbmV0d29ya3MiOlsiVklTQSIsIk1BU1RFUkNBUkQiLCJBTUVYIl19fV0sImZlYXR1cmVfZmxhZ3MiOlsiYW5hbHl0aWNzX29ic2VydmFiaWxpdHlfZW5hYmxlZCIsImNhcmRfZmllbGRzX2VuYWJsZWQiLCJnZXRfd2l0aF9wdWJsaWNfa2V5X2VuYWJsZWQiLCJsb2dzX29ic2VydmFiaWxpdHlfZW5hYmxlZCIsInJpc2tfanNfZW5hYmxlZCIsInVzZV9ub25fYmljX2lkZWFsX2ludGVncmF0aW9uIl0sInJpc2siOnsiZW5hYmxlZCI6ZmFsc2V9LCJtZXJjaGFudF9uYW1lIjoiZVpoaXJlIiwicGF5bWVudF9zZXNzaW9uX3NlY3JldCI6InBzc18zMjRlMGZiMS1iZjc4LTRjMGYtYmFiZS01MjhlNDA2MmJjODAiLCJwYXltZW50X3R5cGUiOiJSZWd1bGFyIiwiaW50ZWdyYXRpb25fZG9tYWluIjoiZGV2aWNlcy5hcGkuc2FuZGJveC5jaGVja291dC5jb20ifQ==",
-                paymentSessionSecret = "pss_324e0fb1-bf78-4c0f-babe-528e4062bc80"
+                id = id,
+                paymentSessionToken = paymentSessionToken,
+                paymentSessionSecret = paymentSessionSecret
             ),
-            publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
+            publicKey = publicKey,
             environment = Environment.SANDBOX,
             componentCallback = ComponentCallback(
                 onReady = { component ->
@@ -95,6 +114,10 @@ class CheckActivity : AppCompatActivity() {
             containerView.addView(googlePayComponent.provideView(containerView))
             Log.d("Checkout", "✅ Card & Google Pay views added")
         }
+        }catch (e : Exception){
+            e.stackTrace
+        }
+
     }
 
 
@@ -345,5 +368,9 @@ class CheckActivity : AppCompatActivity() {
             Log.d("TAG", "onActivityResult: ")
             //coordinator.onActivityResult(requestCode, resultCode, data)
         }
+    }
+
+    override fun onDataSend(data: HashMap<String, Any>) {
+
     }
 }
