@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.View
 import android.view.Window
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.checkout.components.core.CheckoutComponentsFactory
@@ -107,6 +108,7 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                     Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
                 },
                 onError = { component, checkoutError ->
+                    Toast.makeText(this@CheckActivity,"Please Checkout Payment Failed", Toast.LENGTH_LONG).show()
                     Log.e("Checkout", "❌ onError ${component.name}: $checkoutError")
                 }
             ),
