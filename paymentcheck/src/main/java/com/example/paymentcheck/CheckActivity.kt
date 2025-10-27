@@ -1,8 +1,11 @@
 package com.example.paymentcheck
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.view.Window
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -23,12 +26,20 @@ import java.net.URL
 
 class CheckActivity : AppCompatActivity(),OnDataPass {
     private lateinit var coordinator: GooglePayFlowCoordinator
-
-
+    private lateinit var containerView: FrameLayout
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
+        supportActionBar?.hide()
         enableEdgeToEdge()
         setContentView(R.layout.activity_check)
+
+
+        ///val bottomSheetLayout: View = findViewById(R.id.bottomSheetLayout)
+        containerView = findViewById(R.id.checkoutContainer)
+      //  val titleText: TextView = bottomSheetLayout.findViewById(R.id.titleText)
+
+
 //        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
 //            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
 //            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -47,7 +58,6 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                  paymentSessionToken = it["paymentSessionToken"]!!
                  paymentSessionSecret = it["paymentSessionSecret"]!!
                  publicKey = it["publicKey"]!!
-
             }
             checkoutWithGoogle(id,paymentSessionToken,paymentSessionSecret,publicKey)
         }
@@ -63,7 +73,6 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
         try {
 
 
-        val containerView = findViewById<FrameLayout>(R.id.checkoutContainer)
 
         // ✅ Initialize the coordinator
         coordinator = GooglePayFlowCoordinator(
@@ -94,6 +103,7 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                     Log.d("Checkout", "onSubmit: ${component.name}")
                 },
                 onSuccess = { component, paymentId ->
+                    itemClickedLocation.onITemClick(paymentId)
                     Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
                 },
                 onError = { component, checkoutError ->
@@ -135,19 +145,6 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
             environment = Environment.SANDBOX,
         )
 
-// Create CheckoutComponents
-//        CoroutineScope(Dispatchers.IO).launch {
-//            try {
-//                val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-//                val flow = checkoutComponents.create(ComponentName.Flow)
-//                //checkoutComponent.provideView(containerView)
-//                flow.provideView(containerView)
-//
-//            } catch (checkoutError: CheckoutError) {
-//                Log.e("TAG", "CheckoutFuctionImplement: ",checkoutError )
-//              //  handleError(checkoutError)
-//            }
-//        }
 
 
 
@@ -373,4 +370,24 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
     override fun onDataSend(data: HashMap<String, Any>) {
 
     }
+
+    override fun onITemClick(data: String) {
+        TODO("Not yet implemented")
+    }
+
+    internal var itemClickedLocation: OnDataPass = object : OnDataPass {
+        override fun onDataSend(data: HashMap<String, Any>) {
+
+        }
+
+        override fun onITemClick(data: String) {
+            print(data)
+            val resultIntent = Intent()
+            resultIntent.putExtra("paymentId", data)
+            setResult(RESULT_OK, resultIntent)
+            finish()
+        }
+
+    }
+
 }
