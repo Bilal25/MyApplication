@@ -47,6 +47,9 @@ dependencies {
     implementation("com.checkout:checkout-android-components:1.1.1")
     implementation("com.checkout:checkout-android-components-ui:1.1.1")
     implementation ("com.checkout:checkout-android-components-wallet:1.1.1")
+//    implementation ("com.checkout:checkout-sdk-android:2.0.0")
+
+
     implementation 'com.intuit.sdp:sdp-android:1.0.6'
     implementation 'com.intuit.ssp:ssp-android:1.0.6'
 }

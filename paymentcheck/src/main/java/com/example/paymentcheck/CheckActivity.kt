@@ -1,12 +1,11 @@
 package com.example.paymentcheck
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import android.view.View
 import android.view.Window
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -14,19 +13,26 @@ import com.checkout.components.core.CheckoutComponentsFactory
 import com.checkout.components.interfaces.Environment
 import com.checkout.components.interfaces.component.CheckoutComponentConfiguration
 import com.checkout.components.interfaces.component.ComponentCallback
+import com.checkout.components.interfaces.component.ComponentOption
+import com.checkout.components.interfaces.component.FlowCoordinator
 import com.checkout.components.interfaces.error.CheckoutError
+import com.checkout.components.interfaces.model.ComponentName
 import com.checkout.components.interfaces.model.PaymentMethodName
 import com.checkout.components.interfaces.model.PaymentSessionResponse
 import com.checkout.components.wallet.wrapper.GooglePayFlowCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 
 class CheckActivity : AppCompatActivity(),OnDataPass {
     private lateinit var coordinator: GooglePayFlowCoordinator
+    var  paymentMethodSupportedList: List<String> = listOf("card", "googlepay")
+    private val googlePayFlowCoordinator = MutableStateFlow<FlowCoordinator?>(null)
+
     private lateinit var containerView: FrameLayout
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,9 +67,12 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                  publicKey = it["publicKey"]!!
             }
             checkoutWithGoogle(id,paymentSessionToken,paymentSessionSecret,publicKey)
+             // CheckoutFuctionImplement(id,paymentSessionToken,paymentSessionSecret,publicKey)
+           // testlayout(id,paymentSessionToken,paymentSessionSecret,publicKey)
         }
 
     }
+
 
     private suspend fun checkoutWithGoogle(
         id: String,
@@ -74,6 +83,7 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
         try {
 
 
+// Map of components to their specific configurations
 
         // ✅ Initialize the coordinator
         coordinator = GooglePayFlowCoordinator(
@@ -94,8 +104,11 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                 paymentSessionToken = paymentSessionToken,
                 paymentSessionSecret = paymentSessionSecret
             ),
+
             publicKey = publicKey,
             environment = Environment.SANDBOX,
+            flowCoordinators =
+                flowCoordinators,
             componentCallback = ComponentCallback(
                 onReady = { component ->
                     Log.d("Checkout", "onReady: ${component.name}")
@@ -112,18 +125,36 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                     Log.e("Checkout", "❌ onError ${component.name}: $checkoutError")
                 }
             ),
-            flowCoordinators = flowCoordinators
+
+           // flowCoordinators = flowCoordinators
         )
 
-        val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
 
-        val cardComponent = checkoutComponents.create(PaymentMethodName.Card)
-        val googlePayComponent = checkoutComponents.create(PaymentMethodName.GooglePay)
+        val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
+           val cardComponent = checkoutComponents.create(ComponentName.Flow)
+                //val cardComponent = checkoutComponents.create(PaymentMethodName.Card)
+           //  val googlePayComponent = checkoutComponents.create(PaymentMethodName.GooglePay)
 
         withContext(Dispatchers.Main) {
             containerView.removeAllViews()
-            containerView.addView(cardComponent.provideView(containerView))
-            containerView.addView(googlePayComponent.provideView(containerView))
+          containerView.addView(cardComponent.provideView(containerView))
+           // containerView.addView(googlePayComponent.provideView(containerView))
+
+           // val googlePayView = googlePayComponent.provideView(containerView)
+           // Log.d("GooglePay", "Provided view: $googlePayComponent")
+
+//            withContext(Dispatchers.Main) {
+//                val googlePayView = googlePayComponent.provideView(containerView)
+//                googlePayView?.layoutParams = LinearLayout.LayoutParams(
+//                    LinearLayout.LayoutParams.MATCH_PARENT,
+//                    LinearLayout.LayoutParams.WRAP_CONTENT
+//                )
+//
+//                containerView.removeAllViews()
+//                containerView.addView(googlePayView)
+//            }
+
+
             Log.d("Checkout", "✅ Card & Google Pay views added")
         }
         }catch (e : Exception){
@@ -133,19 +164,26 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
     }
 
 
-    private fun CheckoutFuctionImplement() {
+
+
+    private fun CheckoutFuctionImplement(
+        id: String,
+        paymentSessionToken: String,
+        paymentSessionSecret: String,
+        publicKey: String
+    ) {
         val containerView = findViewById<FrameLayout>(R.id.checkoutContainer)
 
         val configuration = CheckoutComponentConfiguration(
             context = this,
             paymentSession = PaymentSessionResponse(
-                id = "ps_34Pi9dRvt2SA4YqhbODm7lCiS78",
-                paymentSessionToken = "YmFzZTY0:eyJpZCI6InBzXzM0UGk5ZFJ2dDJTQTRZcWhiT0RtN2xDaVM3OCIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMCwibG9jYWxlIjoiZW4tR0IiLCJjdXJyZW5jeSI6IkFFRCIsInBheW1lbnRfbWV0aG9kcyI6W3sidHlwZSI6ImNhcmQiLCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sInNjaGVtZV9jaG9pY2VfZW5hYmxlZCI6ZmFsc2UsInN0b3JlX3BheW1lbnRfZGV0YWlscyI6ImRpc2FibGVkIiwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9fSx7InR5cGUiOiJhcHBsZXBheSIsImRpc3BsYXlfbmFtZSI6ImVaaGlyZSIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCIsIm1lcmNoYW50X2NhcGFiaWxpdGllcyI6WyJzdXBwb3J0czNEUyJdLCJzdXBwb3J0ZWRfbmV0d29ya3MiOlsidmlzYSIsIm1hc3RlckNhcmQiLCJhbWV4Il0sInRvdGFsIjp7ImxhYmVsIjoiZVpoaXJlIiwidHlwZSI6ImZpbmFsIiwiYW1vdW50IjoiMSJ9fSx7InR5cGUiOiJnb29nbGVwYXkiLCJtZXJjaGFudCI6eyJpZCI6IjA4MTEzMDg5Mzg2MjY4ODQ5OTgyIiwibmFtZSI6ImVaaGlyZSIsIm9yaWdpbiI6Imh0dHBzOi8vd3d3LmV6aGlyZS5tZSJ9LCJ0cmFuc2FjdGlvbl9pbmZvIjp7InRvdGFsX3ByaWNlX3N0YXR1cyI6IkZJTkFMIiwidG90YWxfcHJpY2UiOiIxIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIn0sImNhcmRfcGFyYW1ldGVycyI6eyJhbGxvd2VkX2F1dGhfbWV0aG9kcyI6WyJQQU5fT05MWSIsIkNSWVBUT0dSQU1fM0RTIl0sImFsbG93ZWRfY2FyZF9uZXR3b3JrcyI6WyJWSVNBIiwiTUFTVEVSQ0FSRCIsIkFNRVgiXX19XSwiZmVhdHVyZV9mbGFncyI6WyJhbmFseXRpY3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwiY2FyZF9maWVsZHNfZW5hYmxlZCIsImdldF93aXRoX3B1YmxpY19rZXlfZW5hYmxlZCIsImxvZ3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwicmlza19qc19lbmFibGVkIiwidXNlX25vbl9iaWNfaWRlYWxfaW50ZWdyYXRpb24iXSwicmlzayI6eyJlbmFibGVkIjpmYWxzZX0sIm1lcmNoYW50X25hbWUiOiJlWmhpcmUiLCJwYXltZW50X3Nlc3Npb25fc2VjcmV0IjoicHNzXzBiYjdiMjBmLWFmODgtNDAzOS04YWYzLWUyOGQxYjI2OTk3OSIsInBheW1lbnRfdHlwZSI6IlJlZ3VsYXIiLCJpbnRlZ3JhdGlvbl9kb21haW4iOiJkZXZpY2VzLmFwaS5zYW5kYm94LmNoZWNrb3V0LmNvbSJ9",
-                paymentSessionSecret = "pss_0bb7b20f-af88-4039-8af3-e28d1b269979",
+                id = id,
+                paymentSessionToken = paymentSessionToken,
+                paymentSessionSecret = paymentSessionSecret,
             ),
             publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
             environment = Environment.SANDBOX,
-        )
+                )
 
 
 
@@ -160,9 +198,9 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                 val configuration = CheckoutComponentConfiguration(
                     context = this@CheckActivity,
                     paymentSession = PaymentSessionResponse(
-                        id = "ps_34QqtyZYOxVJur7XP2M2c5w3eyM",
-                        paymentSessionToken = "YmFzZTY0:eyJpZCI6InBzXzM0UXF0eVpZT3hWSnVyN1hQMk0yYzV3M2V5TSIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMDAwLCJsb2NhbGUiOiJlbi1HQiIsImN1cnJlbmN5IjoiQUVEIiwicGF5bWVudF9tZXRob2RzIjpbeyJ0eXBlIjoiY2FyZCIsImNhcmRfc2NoZW1lcyI6WyJWaXNhIiwiTWFzdGVyY2FyZCIsIkFtZXgiXSwic2NoZW1lX2Nob2ljZV9lbmFibGVkIjpmYWxzZSwic3RvcmVfcGF5bWVudF9kZXRhaWxzIjoiZGlzYWJsZWQiLCJiaWxsaW5nX2FkZHJlc3MiOnsiY2l0eSI6IkR1YmFpIiwiY291bnRyeSI6IkFFIn19LHsidHlwZSI6ImFwcGxlcGF5IiwiZGlzcGxheV9uYW1lIjoiZVpoaXJlIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIiwibWVyY2hhbnRfY2FwYWJpbGl0aWVzIjpbInN1cHBvcnRzM0RTIl0sInN1cHBvcnRlZF9uZXR3b3JrcyI6WyJ2aXNhIiwibWFzdGVyQ2FyZCIsImFtZXgiXSwidG90YWwiOnsibGFiZWwiOiJlWmhpcmUiLCJ0eXBlIjoiZmluYWwiLCJhbW91bnQiOiIxMDAifX0seyJ0eXBlIjoiZ29vZ2xlcGF5IiwibWVyY2hhbnQiOnsiaWQiOiIwODExMzA4OTM4NjI2ODg0OTk4MiIsIm5hbWUiOiJlWmhpcmUiLCJvcmlnaW4iOiJodHRwczovL3d3dy5lemhpcmUubWUifSwidHJhbnNhY3Rpb25faW5mbyI6eyJ0b3RhbF9wcmljZV9zdGF0dXMiOiJGSU5BTCIsInRvdGFsX3ByaWNlIjoiMTAwIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIn0sImNhcmRfcGFyYW1ldGVycyI6eyJhbGxvd2VkX2F1dGhfbWV0aG9kcyI6WyJQQU5fT05MWSIsIkNSWVBUT0dSQU1fM0RTIl0sImFsbG93ZWRfY2FyZF9uZXR3b3JrcyI6WyJWSVNBIiwiTUFTVEVSQ0FSRCIsIkFNRVgiXX19XSwiZmVhdHVyZV9mbGFncyI6WyJhbmFseXRpY3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwiY2FyZF9maWVsZHNfZW5hYmxlZCIsImdldF93aXRoX3B1YmxpY19rZXlfZW5hYmxlZCIsImxvZ3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwicmlza19qc19lbmFibGVkIiwidXNlX25vbl9iaWNfaWRlYWxfaW50ZWdyYXRpb24iXSwicmlzayI6eyJlbmFibGVkIjpmYWxzZX0sIm1lcmNoYW50X25hbWUiOiJlWmhpcmUiLCJwYXltZW50X3Nlc3Npb25fc2VjcmV0IjoicHNzXzk0YWYxYzgzLWY1ZWYtNDY5MS1iOTI3LWJkMjQzN2M5Yzg5MyIsInBheW1lbnRfdHlwZSI6IlJlZ3VsYXIiLCJpbnRlZ3JhdGlvbl9kb21haW4iOiJkZXZpY2VzLmFwaS5zYW5kYm94LmNoZWNrb3V0LmNvbSJ9",
-                        paymentSessionSecret = "pss_94af1c83-f5ef-4691-b927-bd2437c9c893"
+                        id = id,
+                        paymentSessionToken = paymentSessionToken,
+                        paymentSessionSecret = paymentSessionSecret,
                     ),
                     publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
                     environment = Environment.SANDBOX,
@@ -376,6 +414,98 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
     override fun onITemClick(data: String) {
         TODO("Not yet implemented")
     }
+
+//    private suspend fun checkoutWithGooglev2(
+//        id: String,
+//        paymentSessionToken: String,
+//        paymentSessionSecret: String,
+//        publicKey: String
+//    ) {
+//        try {
+//            // ✅ Initialize the coordinator
+//            coordinator = GooglePayFlowCoordinator(
+//                context = this@CheckActivity,
+//                handleActivityResult = { resultCode, data ->
+//                    Log.d("GooglePay", "Activity result received: $resultCode")
+//                }
+//            )
+//
+//            val flowCoordinators = mapOf(
+//                PaymentMethodName.GooglePay to coordinator
+//            )
+//
+//            // ✅ Add Google Pay configuration (IMPORTANT)
+//            val configuration = CheckoutComponentConfiguration(
+//                context = this@CheckActivity,
+//                paymentSession = PaymentSessionResponse(
+//                    id = id,
+//                    paymentSessionToken = paymentSessionToken,
+//                    paymentSessionSecret = paymentSessionSecret
+//                ),
+//                publicKey = publicKey,
+//                environment = Environment.SANDBOX,
+//
+//                googlePayConfiguration = GooglePayConfiguration(
+//                    merchantName = "eZhire Rentals", // 👈 your brand name here
+//                    environment = GooglePayEnvironment.TEST // or PRODUCTION for live
+//                ),
+//
+//                componentCallback = ComponentCallback(
+//                    onReady = { component ->
+//                        Log.d("Checkout", "onReady: ${component.name}")
+//                    },
+//                    onSubmit = { component ->
+//                        Log.d("Checkout", "onSubmit: ${component.name}")
+//                    },
+//                    onSuccess = { component, paymentId ->
+//                        itemClickedLocation.onITemClick(paymentId)
+//                        Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
+//                    },
+//                    onError = { component, checkoutError ->
+//                        Toast.makeText(
+//                            this@CheckActivity,
+//                            "Please Checkout Payment Failed",
+//                            Toast.LENGTH_LONG
+//                        ).show()
+//                        Log.e("Checkout", "❌ onError ${component.name}: $checkoutError")
+//                    }
+//                ),
+//
+//                flowCoordinators = flowCoordinators
+//            )
+//
+//            val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
+//            val googlePayComponent = checkoutComponents.create(PaymentMethodName.GooglePay)
+//
+//            withContext(Dispatchers.Main) {
+//                containerView.removeAllViews()
+//
+//                // ✅ Check if Google Pay is available before adding view
+////                googlePayComponent.isReadyToPay(
+////                    onReady = { ready ->
+////                        if (ready) {
+////                            val gPayView = googlePayComponent.provideView(containerView)
+////                            containerView.addView(gPayView)
+////                            Log.d("Checkout", "✅ Google Pay button added")
+////                        } else {
+////                            Log.w("Checkout", "⚠️ Google Pay not available on this device/config")
+////                            Toast.makeText(
+////                                this@CheckActivity,
+////                                "Google Pay not available on this device",
+////                                Toast.LENGTH_SHORT
+////                            ).show()
+////                        }
+////                    },
+////                    onError = { error ->
+////                        Log.e("Checkout", "❌ Google Pay readiness check failed: $error")
+////                    }
+////                )
+//            }
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//        }
+//    }
+
 
     internal var itemClickedLocation: OnDataPass = object : OnDataPass {
         override fun onDataSend(data: HashMap<String, Any>) {
