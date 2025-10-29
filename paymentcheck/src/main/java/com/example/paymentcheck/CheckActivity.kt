@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.checkout.components.core.CheckoutComponentsFactory
 import com.checkout.components.interfaces.Environment
+import com.checkout.components.interfaces.api.CheckoutComponents
 import com.checkout.components.interfaces.component.CheckoutComponentConfiguration
 import com.checkout.components.interfaces.component.ComponentCallback
 import com.checkout.components.interfaces.component.ComponentOption
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
@@ -32,6 +34,7 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
     private lateinit var coordinator: GooglePayFlowCoordinator
     var  paymentMethodSupportedList: List<String> = listOf("card", "googlepay")
     private val googlePayFlowCoordinator = MutableStateFlow<FlowCoordinator?>(null)
+     var checkoutComponents: CheckoutComponents? = null
 
     private lateinit var containerView: FrameLayout
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,7 +92,8 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
         coordinator = GooglePayFlowCoordinator(
             context = this@CheckActivity,
             handleActivityResult = { resultCode, data ->
-                Log.d("GooglePay", "Activity result received: $resultCode")
+                checkoutComponents?.handleActivityResult(resultCode, data)
+                Log.d("GooglePay", "Activity result received: $resultCode ")
             }
         )
 
@@ -109,7 +113,7 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
             environment = Environment.SANDBOX,
             flowCoordinators =
                 flowCoordinators,
-            componentCallback = ComponentCallback(
+             componentCallback = ComponentCallback(
                 onReady = { component ->
                     Log.d("Checkout", "onReady: ${component.name}")
                 },
@@ -130,14 +134,17 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
         )
 
 
-        val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-           val cardComponent = checkoutComponents.create(ComponentName.Flow)
+            checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
+             val cardComponent = checkoutComponents?.create(ComponentName.Flow)
                 //val cardComponent = checkoutComponents.create(PaymentMethodName.Card)
            //  val googlePayComponent = checkoutComponents.create(PaymentMethodName.GooglePay)
 
         withContext(Dispatchers.Main) {
             containerView.removeAllViews()
-          containerView.addView(cardComponent.provideView(containerView))
+            containerView.addView(cardComponent!!.provideView(containerView))
+
+
+
            // containerView.addView(googlePayComponent.provideView(containerView))
 
            // val googlePayView = googlePayComponent.provideView(containerView)
