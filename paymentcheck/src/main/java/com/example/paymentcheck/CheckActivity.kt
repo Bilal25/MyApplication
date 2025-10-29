@@ -135,7 +135,7 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
 
 
             checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-             val cardComponent = checkoutComponents?.create(ComponentName.Flow)
+          val cardComponent = checkoutComponents?.create(ComponentName.Flow)
                 //val cardComponent = checkoutComponents.create(PaymentMethodName.Card)
            //  val googlePayComponent = checkoutComponents.create(PaymentMethodName.GooglePay)
 

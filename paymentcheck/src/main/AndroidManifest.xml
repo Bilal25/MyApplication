@@ -5,6 +5,7 @@
     <application>
         <activity
             android:name=".CheckActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
     </application>
 
