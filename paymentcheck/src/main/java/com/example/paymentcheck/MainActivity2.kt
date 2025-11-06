@@ -11,7 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement.spacedBy
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -139,6 +139,7 @@ class MainActivity2 : ComponentActivity() {
         paymentSessionID: String,
         paymentSessionSecret: String,
         email: String,
+        publicKey: String,
     ): Pair<ComponentOption, CheckoutComponentConfiguration> {
         val rememberMeConfiguration = RememberMeConfiguration(
             data = RememberMeConfiguration.Data(
@@ -161,7 +162,7 @@ class MainActivity2 : ComponentActivity() {
                 secret = paymentSessionSecret,
             ),
             componentCallback = customComponentCallback,
-            publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
+            publicKey = publicKey,
             environment = Environment.SANDBOX
         )
 
@@ -188,7 +189,7 @@ class MainActivity2 : ComponentActivity() {
 
             LaunchedEffect(selectedMethod) {
                 if (selectedMethod == "card") {
-                    val (options, config) = createConfigs(paymentSessionID, paymentSessionSecret,email)
+                    val (options, config) = createConfigs(paymentSessionID, paymentSessionSecret,email,publicKey)
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
                             checkoutComponents = CheckoutComponentsFactory(config = config).create()
@@ -222,11 +223,7 @@ class MainActivity2 : ComponentActivity() {
                     }
                 }
             }
-            if (paymentSessionID.isNotBlank() && paymentSessionSecret.isNotBlank()) {
-                selectedMethod = "card"
-            } else {
-                Log.e("flow component error", "Please enter Payment Session ID and Secret")
-            }
+
 
             LazyColumn(
                 modifier = Modifier
@@ -234,9 +231,59 @@ class MainActivity2 : ComponentActivity() {
                     .safeDrawingPadding()
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
 
+                // ✅ EditText/TextField ہٹا دیے گئے، اب manually values set ہونگی
+                paymentSessionID = paymentSessionID
+                paymentSessionSecret = paymentSessionSecret
+
+                // ✅ یہ والا بٹن خودکار طریقے سے کال ہوگا بغیر کلک کے
+                item {
+                    LaunchedEffect(Unit) {
+                        if (paymentSessionID.isNotBlank() && paymentSessionSecret.isNotBlank()) {
+                            selectedMethod = "card"
+                        } else {
+                            Log.e("flow component error", "Please enter Payment Session ID and Secret")
+                        }
+                    }
+                }
+
+                // ✅ Card Component خود render ہو جائے گا
+                item {
+                    when (selectedMethod) {
+                        "card" -> {
+                            if (isCardAvailable) {
+                                flow?.Render()
+
+                                Button(
+                                    enabled = payButtonEnabled,
+                                    onClick = {
+                                        uiScope.launch {
+                                            flow?.submit()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 16.dp)
+                                ) {
+                                    Text("Pay Now")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+//            LazyColumn(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .safeDrawingPadding()
+//                    .padding(16.dp),
+//                horizontalAlignment = Alignment.CenterHorizontally,
+//                verticalArrangement = spacedBy(8.dp)
+//            ) {
+//
 //                item {
 //                    OutlinedTextField(
 //                        value = paymentSessionID, label = { Text("Payment Session ID") },
@@ -252,7 +299,7 @@ class MainActivity2 : ComponentActivity() {
 //                        modifier = Modifier.fillParentMaxWidth()
 //                    )
 //                }
-
+//
 //                item {
 //                    Row {
 //                        Button(
@@ -270,46 +317,46 @@ class MainActivity2 : ComponentActivity() {
 //                        }
 //                    }
 //                }
-
-                item {
-                    when (selectedMethod) {
-                        "card" -> {
-                            if (isCardAvailable) {
-                                // Render the component for user input
-                                flow?.Render()
-
-                                // 4. Custom "Pay Now" Button
+//
+//                item {
+//                    when (selectedMethod) {
+//                        "card" -> {
+//                            if (isCardAvailable) {
+//                                // Render the component for user input
+//                                flow?.Render()
+//
+//                                // 4. Custom "Pay Now" Button
+////                                Button(
+////                                    // Button is enabled only when the component is valid (isComponentValid is true)
+////                                    enabled = payButtonEnabled,
+////                                    onClick = {
+////                                        // Trigger component submission (this will call onSubmit)
+////                                        uiScope.launch {
+////                                            flow?.submit()
+////                                        }
+////                                    },
+////                                    modifier = Modifier.padding(top = 16.dp)
+////                                ) {
+//
 //                                Button(
-//                                    // Button is enabled only when the component is valid (isComponentValid is true)
 //                                    enabled = payButtonEnabled,
 //                                    onClick = {
-//                                        // Trigger component submission (this will call onSubmit)
 //                                        uiScope.launch {
 //                                            flow?.submit()
 //                                        }
 //                                    },
-//                                    modifier = Modifier.padding(top = 16.dp)
+//                                    modifier = Modifier
+//                                        .fillMaxWidth() // full width
+//                                        .padding(top = 16.dp)
 //                                ) {
-
-                                Button(
-                                    enabled = payButtonEnabled,
-                                    onClick = {
-                                        uiScope.launch {
-                                            flow?.submit()
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth() // full width
-                                        .padding(top = 16.dp)
-                                ) {
-                                    Text("Pay Now")
-                                }
-
-                            }
-                        }
-                    }
-                }
-            }
+//                                    Text("Pay Now")
+//                                }
+//
+//                            }
+//                        }
+//                    }
+//                }
+//            }
         }
     }
 }
