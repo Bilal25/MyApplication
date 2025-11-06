@@ -59,14 +59,18 @@ class MainActivity2 : ComponentActivity() {
             var paymentSessionToken = ""
             var paymentSessionSecret = ""
             var publicKey = ""
+            var email = ""
             userData?.let {
                 id = it["id"]!!
                 paymentSessionToken = it["paymentSessionToken"]!!
                 paymentSessionSecret = it["paymentSessionSecret"]!!
                 publicKey = it["publicKey"]!!
+                email = it["email"]!!
+
+
             }
         //    checkoutWithGoogleV2(id,paymentSessionToken,paymentSessionSecret,publicKey)
-            renderContent(id,paymentSessionToken,paymentSessionSecret,publicKey)
+            renderContent(id,paymentSessionToken,paymentSessionSecret,publicKey,email)
 
             // CheckoutFuctionImplement(id,paymentSessionToken,paymentSessionSecret,publicKey)
             // testlayout(id,paymentSessionToken,paymentSessionSecret,publicKey)
@@ -134,10 +138,11 @@ class MainActivity2 : ComponentActivity() {
     private fun createConfigs(
         paymentSessionID: String,
         paymentSessionSecret: String,
+        email: String,
     ): Pair<ComponentOption, CheckoutComponentConfiguration> {
         val rememberMeConfiguration = RememberMeConfiguration(
             data = RememberMeConfiguration.Data(
-                email = "jheng-hao.lin8@checkout.com",
+                email = email,
             ),
             // 2. Set showPayButton to false
             showPayButton = false
@@ -167,7 +172,8 @@ class MainActivity2 : ComponentActivity() {
         id: String,
         paymentSessionToken: String,
         paymentSessionSecret1: String,
-        publicKey: String
+        publicKey: String,
+        email: String
     ) {
         setContent {
             var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
@@ -182,7 +188,7 @@ class MainActivity2 : ComponentActivity() {
 
             LaunchedEffect(selectedMethod) {
                 if (selectedMethod == "card") {
-                    val (options, config) = createConfigs(paymentSessionID, paymentSessionSecret)
+                    val (options, config) = createConfigs(paymentSessionID, paymentSessionSecret,email)
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
                             checkoutComponents = CheckoutComponentsFactory(config = config).create()
