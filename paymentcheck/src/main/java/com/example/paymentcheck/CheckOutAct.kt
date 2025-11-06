@@ -1,24 +1,31 @@
-//package com.example.myapplication
+//package com.example.paymentcheck
 //
 //import android.os.Bundle
-//import androidx.activity.ComponentActivity
-//import androidx.activity.compose.setContent
-//import androidx.activity.enableEdgeToEdge
-//import androidx.compose.foundation.layout.fillMaxSize
-//import androidx.compose.foundation.layout.padding
-//import androidx.compose.material3.Scaffold
-//import androidx.compose.material3.Text
-//import androidx.compose.runtime.Composable
-//import androidx.compose.ui.Modifier
-//import androidx.compose.ui.tooling.preview.Preview
-//
-//
-//
 //import androidx.activity.enableEdgeToEdge
 //import androidx.appcompat.app.AppCompatActivity
 //import androidx.core.view.ViewCompat
 //import androidx.core.view.WindowInsetsCompat
+//
+////class CheckOutAct : AppCompatActivity() {
+////    override fun onCreate(savedInstanceState: Bundle?) {
+////        super.onCreate(savedInstanceState)
+////        enableEdgeToEdge()
+////        setContentView(R.layout.activity_check_out)
+//////        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+//////            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+//////            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+//////            insets
+//////        }
+////
+////
+////
+////
+////    }
+////}
+//
+//
 //import android.util.Log
+//import androidx.activity.ComponentActivity
 //import androidx.activity.compose.setContent
 //import androidx.activity.enableEdgeToEdge
 //import androidx.compose.foundation.layout.Arrangement.spacedBy
@@ -36,6 +43,7 @@
 //import androidx.compose.runtime.remember
 //import androidx.compose.runtime.setValue
 //import androidx.compose.ui.Alignment
+//import androidx.compose.ui.Modifier
 //import androidx.compose.ui.unit.dp
 //import com.checkout.components.core.CheckoutComponentsFactory
 //import com.checkout.components.interfaces.Environment
@@ -52,7 +60,7 @@
 //import kotlinx.coroutines.Dispatchers
 //import kotlinx.coroutines.launch
 //
-//class MainActivity2 : ComponentActivity() {
+//class CheckOutAct : ComponentActivity() {
 //
 //    private lateinit var checkoutComponents: CheckoutComponents
 //
@@ -130,11 +138,11 @@
 //        val config = CheckoutComponentConfiguration(
 //            context = this,
 //            paymentSession = PaymentSessionResponse(
-//                id = "ps_355xoVIh9jE3x2l54g0Kv97eyp4",
-//                secret = "pss_869066ce-5817-41ca-a07e-211e8a8c1dc3",
+//                id = paymentSessionID,
+//                secret = paymentSessionSecret,
 //            ),
 //            componentCallback = customComponentCallback,
-//            publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
+//            publicKey = "pk_sbox_zxmkbjyj4ec7liyyup23gjfsga#",
 //            environment = Environment.SANDBOX
 //        )
 //
@@ -145,8 +153,8 @@
 //        setContent {
 //            var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
 //            var selectedMethod by remember { mutableStateOf("") }
-//            var paymentSessionID by remember { mutableStateOf("ps_3562F5dl6PHXmHfyXWpS2aBUPAi") }
-//            var paymentSessionSecret by remember { mutableStateOf("pss_50a960d8-35d8-416d-b611-b5f00247ac41") }
+//            var paymentSessionID by remember { mutableStateOf("") }
+//            var paymentSessionSecret by remember { mutableStateOf("") }
 //            var isCardAvailable by remember { mutableStateOf(false) }
 //
 //            // Use the class-level state for button enabling
