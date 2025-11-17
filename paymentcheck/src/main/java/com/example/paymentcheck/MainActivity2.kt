@@ -12,10 +12,14 @@ import androidx.compose.ui.Modifier
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,24 +36,29 @@ import com.checkout.components.interfaces.component.ComponentCallback
 import com.checkout.components.interfaces.component.ComponentOption
 import com.checkout.components.interfaces.component.RememberMeConfiguration
 import com.checkout.components.interfaces.error.CheckoutError
+import com.checkout.components.interfaces.model.ComponentName
 import com.checkout.components.interfaces.model.PaymentMethodName
 import com.checkout.components.interfaces.model.PaymentSessionResponse
+import com.checkout.components.wallet.wrapper.GooglePayFlowCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+//import com.checkout.android_sdk.Components.Options.ComponentOptions
+
 
 class MainActivity2 : ComponentActivity() {
 
     private lateinit var checkoutComponents: CheckoutComponents
+    private lateinit var coordinator: GooglePayFlowCoordinator
 
     // 1. Define a CoroutineScope tied to the main thread for safe UI state updates
     private val uiScope = CoroutineScope(Dispatchers.Main)
 
     // State variable to hold the component's validity. Accessible to the Composable.
     private var isComponentValid by mutableStateOf(false)
-
-
+//    pk_ifvf4pa3yvd574selka2ieh3nm6
+    val config = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -60,21 +69,20 @@ class MainActivity2 : ComponentActivity() {
             var paymentSessionSecret = ""
             var publicKey = ""
             var email = ""
+            var envValue = false
             userData?.let {
                 id = it["id"]!!
                 paymentSessionToken = it["paymentSessionToken"]!!
                 paymentSessionSecret = it["paymentSessionSecret"]!!
                 publicKey = it["publicKey"]!!
                 email = it["email"]!!
+                envValue = it["env"] as? Boolean ?: false
 
 
             }
-        //    checkoutWithGoogleV2(id,paymentSessionToken,paymentSessionSecret,publicKey)
-            renderContent(id,paymentSessionToken,paymentSessionSecret,publicKey,email)
-
-            // CheckoutFuctionImplement(id,paymentSessionToken,paymentSessionSecret,publicKey)
-            // testlayout(id,paymentSessionToken,paymentSessionSecret,publicKey)
-
+           renderContent(id,paymentSessionToken,paymentSessionSecret,publicKey,email,envValue)
+           //renderContentV2(id,paymentSessionToken,paymentSessionSecret,publicKey,email)
+           // testcons(id,paymentSessionToken,paymentSessionSecret,publicKey,email)
 
         }
     }
@@ -129,7 +137,7 @@ class MainActivity2 : ComponentActivity() {
         },
         onError = { component, checkoutError ->
             Toast.makeText(this@MainActivity2, "Initialization error: ${checkoutError.message}, Details: ${checkoutError.code}", Toast.LENGTH_LONG).show()
-
+            isComponentValid = true
             Log.e("flow component error", "${checkoutError.message}, ${checkoutError.code}")
         },
     )
@@ -140,6 +148,7 @@ class MainActivity2 : ComponentActivity() {
         paymentSessionSecret: String,
         email: String,
         publicKey: String,
+        envValue: Boolean,
     ): Pair<ComponentOption, CheckoutComponentConfiguration> {
         val rememberMeConfiguration = RememberMeConfiguration(
             data = RememberMeConfiguration.Data(
@@ -155,18 +164,212 @@ class MainActivity2 : ComponentActivity() {
             rememberMeConfiguration = rememberMeConfiguration
         )
 
-        val config = CheckoutComponentConfiguration(
-            context = this,
-            paymentSession = PaymentSessionResponse(
-                id = paymentSessionID,
-                secret = paymentSessionSecret,
-            ),
-            componentCallback = customComponentCallback,
-            publicKey = publicKey,
-            environment = Environment.SANDBOX
+        coordinator = GooglePayFlowCoordinator(
+            context = this@MainActivity2,
+            handleActivityResult = { resultCode, data ->
+                checkoutComponents?.handleActivityResult(resultCode, data)
+                Log.d("GooglePay", "Activity result received: $resultCode")
+            }
         )
 
+        val flowCoordinators = mapOf(
+            PaymentMethodName.GooglePay to coordinator!!
+        )
+
+
+        val config: CheckoutComponentConfiguration
+
+        if (envValue) {
+            config = CheckoutComponentConfiguration(
+                context = this,
+                paymentSession = PaymentSessionResponse(
+                    id = paymentSessionID,
+                    secret = paymentSessionSecret,
+                ),
+                componentCallback = customComponentCallback,
+                publicKey = publicKey,
+                flowCoordinators = flowCoordinators,
+                environment = Environment.PRODUCTION
+            )
+        } else {
+            config = CheckoutComponentConfiguration(
+                context = this,
+                paymentSession = PaymentSessionResponse(
+                    id = paymentSessionID,
+                    secret = paymentSessionSecret,
+                ),
+                componentCallback = customComponentCallback,
+                publicKey = publicKey,
+                flowCoordinators = flowCoordinators,
+                environment = Environment.SANDBOX
+            )
+        }
+
+// Return non-nullable Pair
         return componentOption to config
+    }
+    private fun renderContentV2(
+        id: String,
+        paymentSessionToken: String,
+        paymentSessionSecret1: String,
+        publicKey: String,
+        email: String,
+        envValue: Boolean
+    ) {
+        setContent {
+            var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
+            var googlePayComponent by remember { mutableStateOf<PaymentMethodComponent?>(null) }
+
+            var selectedMethod by remember { mutableStateOf("flow") } // default
+            var paymentSessionID by remember { mutableStateOf(id) }
+            var paymentSessionSecret by remember { mutableStateOf(paymentSessionSecret1) }
+
+            var isCardAvailable by remember { mutableStateOf(false) }
+            var isGooglePayAvailable by remember { mutableStateOf(false) }
+            var isLoading by remember { mutableStateOf(false) }
+
+            val payButtonEnabled = isComponentValid
+
+            // ------------------------------
+            // INITIALIZE COMPONENTS
+            // ------------------------------
+            LaunchedEffect(selectedMethod) {
+                val (options, config) = createConfigs(
+                    paymentSessionID,
+                    paymentSessionSecret,
+                    email,
+                    publicKey,
+                    envValue
+                )
+
+                try {
+                    val checkoutComponents = CheckoutComponentsFactory(config).create()
+
+                    // --- Card Component ---
+                    flow = checkoutComponents.create(ComponentName.Flow, options)
+                    isCardAvailable = flow?.isAvailable() ?: false
+                    isComponentValid = flow?.isValid() ?: false
+
+                    // --- Google Pay Component ---
+
+
+
+                    isGooglePayAvailable = googlePayComponent?.isAvailable() ?: false
+
+                } catch (checkoutError: CheckoutError) {
+                    runOnUiThread {
+//                        Toast.makeText(
+//                            LocalContext.current,
+//                            "Initialization error: ${checkoutError.message}",
+//                            Toast.LENGTH_LONG
+//                        ).show()
+                    }
+                }
+            }
+
+            // ------------------------------
+            // LISTENERS
+            // ------------------------------
+            LaunchedEffect(flow, googlePayComponent) {
+//                flow?.addListener(object : PaymentMethodListener {
+//                    override fun onSubmitResult(result: SubmitResult) {
+//                        isLoading = false
+//                        Toast.makeText(LocalContext.current, "Card Payment Success", Toast.LENGTH_LONG).show()
+//                    }
+//
+//                    override fun onError(error: Throwable) {
+//                        isLoading = false
+//                        Toast.makeText(LocalContext.current, "Card Payment Failed: ${error.message}", Toast.LENGTH_LONG).show()
+//                    }
+//                })
+//
+//                googlePayComponent?.addListener(object : PaymentMethodListener {
+//                    override fun onSubmitResult(result: SubmitResult) {
+//                        isLoading = false
+//                        Toast.makeText(LocalContext.current, "Google Pay Success", Toast.LENGTH_LONG).show()
+//                    }
+//
+//                    override fun onError(error: Throwable) {
+//                        isLoading = false
+//                        Toast.makeText(LocalContext.current, "Google Pay Failed: ${error.message}", Toast.LENGTH_LONG).show()
+//                    }
+//                })
+            }
+
+            // ------------------------------
+            // UI
+            // ------------------------------
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+
+                item {
+                    // --- Google Pay Button ---
+                    if (isGooglePayAvailable) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(vertical = 16.dp)
+                            )
+                        } else {
+                            Button(
+                                onClick = {
+                                    uiScope.launch {
+                                        isLoading = true
+                                        googlePayComponent?.submit()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                            ) {
+                                Text("Pay with Google Pay")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
+
+                    // --- Card Component ---
+                    if (isCardAvailable) {
+                        flow?.Render()
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(top = 16.dp)
+                            )
+                        } else {
+                            Button(
+                                enabled = payButtonEnabled,
+                                onClick = {
+                                    uiScope.launch {
+                                        isLoading = true
+                                        flow?.submit()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp)
+                            ) {
+                                Text("Pay Now")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+
     }
 
     private fun renderContent(
@@ -174,7 +377,8 @@ class MainActivity2 : ComponentActivity() {
         paymentSessionToken: String,
         paymentSessionSecret1: String,
         publicKey: String,
-        email: String
+        email: String,
+        envValue: Boolean
     ) {
         setContent {
             var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
@@ -182,20 +386,27 @@ class MainActivity2 : ComponentActivity() {
             var paymentSessionID by remember { mutableStateOf(id) }
             var paymentSessionSecret by remember { mutableStateOf(paymentSessionSecret1) }
             var isCardAvailable by remember { mutableStateOf(false) }
+            var isLoading by remember { mutableStateOf(false) }
+            var payButtonEnabledd by remember { mutableStateOf(true) }
 
             // Use the class-level state for button enabling
-            val payButtonEnabled = isComponentValid
+            var payButtonEnabled = isComponentValid
 
 
             LaunchedEffect(selectedMethod) {
                 if (selectedMethod == "card") {
-                    val (options, config) = createConfigs(paymentSessionID, paymentSessionSecret,email,publicKey)
+
+                    val (options, config) = createConfigs(paymentSessionID, paymentSessionSecret,email,publicKey,envValue)
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
                             checkoutComponents = CheckoutComponentsFactory(config = config).create()
-
+                          //  ComponentName.Flow
+//                            flow = checkoutComponents.create(
+//                                PaymentMethodName.Card,
+//                                options
+//                            )
                             flow = checkoutComponents.create(
-                                PaymentMethodName.Card,
+                                ComponentName.Flow,
                                 options
                             )
                             isCardAvailable = flow?.isAvailable() ?: false
@@ -204,12 +415,14 @@ class MainActivity2 : ComponentActivity() {
                             val isValidStatus = flow?.isValid() ?: false
                             isComponentValid = isValidStatus // Update the shared state
 
+
                             Log.e(
                                 "flow component isValid???",
                                 "flow component isValid???: $isValidStatus"
                             )
 
                         } catch (checkoutError: CheckoutError) {
+                            payButtonEnabled = true
                             runOnUiThread {
                                 Toast.makeText(this@MainActivity2, "Initialization error: ${checkoutError.message}, Details: ${checkoutError.details}", Toast.LENGTH_LONG).show()
 
@@ -230,8 +443,11 @@ class MainActivity2 : ComponentActivity() {
                     .fillMaxSize()
                     .safeDrawingPadding()
                     .padding(16.dp),
+
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.Center
+
+//                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
 
                 // ✅ EditText/TextField ہٹا دیے گئے، اب manually values set ہونگی
@@ -256,20 +472,102 @@ class MainActivity2 : ComponentActivity() {
                             if (isCardAvailable) {
                                 flow?.Render()
 
-                                Button(
-                                    enabled = payButtonEnabled,
-                                    onClick = {
-                                        uiScope.launch {
-                                            flow?.submit()
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 16.dp)
-                                ) {
-                                    Text("Pay Now")
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .padding(top = 16.dp)
+                                    )
+                                } else {
+                                    Button(
+                                        enabled = payButtonEnabled,
+                                        onClick = {
+                                            uiScope.launch {
+                                                isLoading = true          // show loader
+                                                payButtonEnabled = false  // disable button
+
+                                                try {
+                                                    flow?.submit()        // proceed payment
+                                                } finally {
+                                                   // isLoading = false     // hide loader
+                                                   // payButtonEnabled = true // enable button again
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 16.dp)
+                                    ) {
+                                        Text("Pay Now")
+                                    }
                                 }
                             }
+
+
+
+//                            if (isCardAvailable) {
+//
+//                                flow?.Render()
+//
+//                                Spacer(modifier = Modifier.height(20.dp))
+//
+//                                if (isLoading) {
+//                                    // Show Loader instead of button
+//                                    CircularProgressIndicator(
+//                                        modifier = Modifier
+//                                            .size(40.dp)
+//                                            .padding(top = 16.dp)
+//                                    )
+//                                } else {
+//                                    Button(
+//                                        enabled = payButtonEnabled,
+//                                        onClick = {
+//                                            uiScope.launch {
+//                                                isLoading = true  // Start loader
+//                                                flow?.submit()   // Proceed payment
+//                                                isLoading = false // Stop loader (you can move this to callback for accuracy)
+//                                            }
+//                                        },
+//                                        modifier = Modifier
+//                                            .fillMaxWidth()
+//                                            .padding(top = 16.dp)
+//                                    ) {
+//                                        Text("Pay Now")
+//                                    }
+//                                }
+//                            }
+
+
+
+
+
+
+
+
+
+
+                            //
+
+
+//                            if (isCardAvailable) {
+//                                flow?.Render()
+//
+//                                Button(
+//                                    enabled = payButtonEnabled,
+//                                    onClick = {
+//                                        uiScope.launch {
+//                                            flow?.submit()
+//                                        }
+//                                    },
+//                                    modifier = Modifier
+//                                        .fillMaxWidth()
+//                                        .padding(top = 16.dp)
+//                                ) {
+//                                    Text("Pay Now")
+//                                }
+//                            }
                         }
                     }
                 }
@@ -359,4 +657,129 @@ class MainActivity2 : ComponentActivity() {
 //            }
         }
     }
+
+
+//    private fun testcons(
+//        id: String,
+//        paymentSessionToken: String,
+//        paymentSessionSecret1: String,
+//        publicKey: String,
+//        email: String
+//    ) {
+//        setContent {
+//            var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
+//            var selectedMethod by remember { mutableStateOf("") }
+//            var isAvailable by remember { mutableStateOf(false) }
+//            var isComponentValid by remember { mutableStateOf(false) }
+//
+//            val payButtonEnabled = isComponentValid
+//
+//            LaunchedEffect(selectedMethod) {
+//                if (selectedMethod == "card_googlepay") {
+//                    val options = ComponentOptions(
+//                        listOf(
+//                            PaymentMethodName.Card,
+//                            PaymentMethodName.GooglePay
+//                        )
+//                    )
+//
+//                    val config = CheckoutComponentConfiguration(
+//                        context = this@MainActivity2,
+//                        paymentSession = PaymentSessionResponse(
+//                            id = paymentSessionID,
+//                            paymentSessionToken = paymentSessionID, // Token optional if already mapped
+//                            paymentSessionSecret = paymentSessionSecret
+//                        ),
+//                        publicKey = publicKey,
+//                        environment = Environment.SANDBOX,
+//                        componentCallback = ComponentCallback(
+//                            onReady = { component ->
+//                                Log.d("Checkout", "✅ onReady: ${component.name}")
+//                            },
+//                            onSubmit = { component ->
+//                                Log.d("Checkout", "🚀 onSubmit: ${component.name}")
+//                            },
+//                            onSuccess = { component, paymentId ->
+//                                Toast.makeText(
+//                                    this@MainActivity2,
+//                                    "✅ Payment Success: $paymentId",
+//                                    Toast.LENGTH_LONG
+//                                ).show()
+//                                Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
+//                            },
+//                            onError = { component, checkoutError ->
+//                                Toast.makeText(
+//                                    this@MainActivity2,
+//                                    "❌ Payment Failed: ${checkoutError.message}",
+//                                    Toast.LENGTH_LONG
+//                                ).show()
+//                                Log.e(
+//                                    "Checkout",
+//                                    "❌ onError ${component.name}: ${checkoutError.message}"
+//                                )
+//                            }
+//                        )
+//                    )
+//
+//                    CoroutineScope(Dispatchers.IO).launch {
+//                        try {
+//                            checkoutComponents =
+//                                CheckoutComponentsFactory(config = config).create()
+//
+//                            flow = checkoutComponents.create(ComponentName.Flow, options)
+//                            isAvailable = flow?.isAvailable() ?: false
+//
+//                            val valid = flow?.isValid() ?: false
+//                            isComponentValid = valid
+//                            Log.d("Checkout", "isValid: $valid")
+//
+//                        } catch (checkoutError: CheckoutError) {
+//                            Log.e(
+//                                "Checkout",
+//                                "Initialization error: ${checkoutError.message}, Details: ${checkoutError.details}"
+//                            )
+//                        }
+//                    }
+//                }
+//            }
+//
+//            LazyColumn(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .padding(16.dp),
+//                horizontalAlignment = Alignment.CenterHorizontally,
+//                verticalArrangement = Arrangement.spacedBy(12.dp)
+//            ) {
+//                // ✅ Auto-select both methods once screen loads
+//                item {
+//                    LaunchedEffect(Unit) {
+//                        selectedMethod = "card_googlepay"
+//                    }
+//                }
+//
+//                // ✅ Flow UI render
+//                item {
+//                    if (isAvailable) {
+//                        flow?.Render()
+//
+//                        Button(
+//                            enabled = payButtonEnabled,
+//                            onClick = {
+//                                uiScope.launch {
+//                                    flow?.submit()
+//                                }
+//                            },
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .padding(top = 16.dp)
+//                        ) {
+//                            Text("Pay Now")
+//                        }
+//                    } else {
+//                        Text("⚠️ Checkout Components not available")
+//                    }
+//                }
+//            }
+//        }
+//    }
 }

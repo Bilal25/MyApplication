@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import com.checkout.components.core.CheckoutComponentsFactory
 import com.checkout.components.interfaces.Environment
 import com.checkout.components.interfaces.api.CheckoutComponents
+import com.checkout.components.interfaces.api.PaymentMethodComponent
 import com.checkout.components.interfaces.component.CheckoutComponentConfiguration
 import com.checkout.components.interfaces.component.ComponentCallback
 import com.checkout.components.interfaces.component.ComponentOption
@@ -42,7 +43,10 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
     var  paymentMethodSupportedList: List<String> = listOf("card", "googlepay")
     private val googlePayFlowCoordinator = MutableStateFlow<FlowCoordinator?>(null)
      var checkoutComponents: CheckoutComponents? = null
+    private var flowco: PaymentMethodComponent? = null
 
+    // var cardcom = null
+    private var cardcom: PaymentMethodComponent? = null
     private var currentView: View? = null
     private var googleCoordinator: GooglePayFlowCoordinator? = null
     private var lastConfig: CheckoutComponentConfiguration? = null
@@ -62,7 +66,7 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
 
         ///val bottomSheetLayout: View = findViewById(R.id.bottomSheetLayout)
         containerView = findViewById(R.id.checkoutContainer)
-        btnPayNow  = findViewById(R.id.btnPayNow)
+          btnPayNow  = findViewById(R.id.btnPayNow)
       //  val titleText: TextView = bottomSheetLayout.findViewById(R.id.titleText)
 
 
@@ -85,8 +89,25 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
                  paymentSessionSecret = it["paymentSessionSecret"]!!
                  publicKey = it["publicKey"]!!
             }
-            checkoutWithGoogleV2(id,paymentSessionToken,paymentSessionSecret,publicKey)
-
+            checkoutWithGoogleV3(id,paymentSessionToken,paymentSessionSecret,publicKey)
+//            btnPayNow.setOnClickListener {
+//                lifecycleScope.launch {
+//                    val valid = cardcom?.isValid() ?: false
+//
+//                    if (valid) {
+//                        Toast.makeText(this@CheckActivity, "Valid Card", Toast.LENGTH_SHORT).show()
+//
+//                        // Submit Flow component to start payment
+//                        flowco?.submit()
+//                    } else {
+//                        Toast.makeText(
+//                            this@CheckActivity,
+//                            "Please enter valid card details",
+//                            Toast.LENGTH_SHORT
+//                        ).show()
+//                    }
+//                }
+//            }
              // CheckoutFuctionImplement(id,paymentSessionToken,paymentSessionSecret,publicKey)
            // testlayout(id,paymentSessionToken,paymentSessionSecret,publicKey)
 
@@ -175,55 +196,225 @@ class CheckActivity : AppCompatActivity(),OnDataPass {
 
             // 4️⃣ ComponentOption: hide default SDK Pay button + RememberMe enabled
             val componentOption = ComponentOption(
-                showPayButton = false,
-                rememberMeConfiguration = RememberMeConfiguration(
-                    data = RememberMeConfiguration.Data(email = "jheng-hao.lin8@checkout.com"),
-                    showPayButton = false
-                )
+                showPayButton = true,
+//                rememberMeConfiguration = RememberMeConfiguration(
+//                    data = RememberMeConfiguration.Data(email = "syedbilal.ezhire"),
+//                    showPayButton = true
+//                )
             )
 
             // 5️⃣ Create Checkout components
             checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
 
-            // 6️⃣ Create Card component with ComponentOption
-            val cardComponent = checkoutComponents?.create(PaymentMethodName.Card, componentOption)
 
+            // 6️⃣ Create Card component with ComponentOption
+            val cardComponent = checkoutComponents?.create(ComponentName.Flow , componentOption)
             withContext(Dispatchers.Main) {
-                // Clear container and render card view
                 containerView.removeAllViews()
                 val cardView = cardComponent?.provideView(containerView)
                 containerView.addView(cardView)
 
-                // Initially disable custom Pay Now button
-                btnPayNow.isEnabled = false
-
-                // 7️⃣ Poll for validity and enable/disable custom button
+                // Optionally check readiness
                 lifecycleScope.launch {
-                    while (true) {
-                        val isValid = cardComponent?.isValid() ?: false
-                        btnPayNow.isEnabled = isValid
-                        delay(200) // check every 200ms
+                    val ready = cardComponent?.isValid() ?: false
+                    if (ready) {
+                        Log.d("GooglePay", "Google Pay component is ready")
+                    } else {
+                        Log.d("GooglePay", "Google Pay not ready")
                     }
                 }
+            }
 
-                // 8️⃣ Custom Pay Now button click
+//            withContext(Dispatchers.Main) {
+//                // Clear container and render card view
+//                 containerView.removeAllViews()
+//                val cardView = cardComponent?.provideView(containerView)
+//                containerView.addView(cardView)
+//
+//
+//
+//
+//                // Initially disable custom Pay Now button
+////                btnPayNow.isEnabled = false
+////
+////                // 7️⃣ Poll for validity and enable/disable custom button
+////                lifecycleScope.launch {
+////                    while (true) {
+////                        val isValid = cardComponent?.isValid() ?: false
+////                        btnPayNow.isEnabled = isValid
+////                        delay(200) // check every 200ms
+////                    }
+////                }
+//
+//                // 8️⃣ Custom Pay Now button click
+////                btnPayNow.setOnClickListener {
+////                    lifecycleScope.launch {
+////                        val isValid = cardComponent?.isValid() ?: false
+////                        if (isValid) {
+////                            Log.d("CardComponent", "Pay Now clicked - submitting")
+////                            cardComponent.submit() // suspend function
+////                        } else {
+////                            Toast.makeText(
+////                                this@CheckActivity,
+////                                "Please enter valid card details",
+////                                Toast.LENGTH_SHORT
+////                            ).show()
+////                            Log.d("CardComponent", "Card invalid, cannot submit")
+////                        }
+////                    }
+////                }
+//            }
+
+        } catch (e: Exception) {
+            Log.e("Checkout", "❌ Exception: ${e.message}", e)
+            Toast.makeText(this@CheckActivity, "Unexpected Error", Toast.LENGTH_LONG).show()
+        }
+    }
+    private suspend fun checkoutWithGoogleV3(
+        id: String,
+        paymentSessionToken: String,
+        paymentSessionSecret: String,
+        publicKey: String
+    ) {
+        try {
+            // 1️⃣ Coordinator setup for Google Pay
+            coordinator = GooglePayFlowCoordinator(
+                context = this@CheckActivity,
+                handleActivityResult = { resultCode, data ->
+                    checkoutComponents?.handleActivityResult(resultCode, data)
+                    Log.d("GooglePay", "Activity result received: $resultCode")
+                }
+            )
+
+            val flowCoordinators = mapOf(
+                PaymentMethodName.GooglePay to coordinator!!
+            )
+
+            // 2️⃣ Component callback setup
+            val componentCallback = ComponentCallback(
+                onReady = { component ->
+                    Log.d("Checkout", "onReady: ${component.name}")
+                },
+                onSubmit = { component ->
+                    Log.d("Checkout", "onSubmit: ${component.name}")
+                },
+                onSuccess = { component, paymentId ->
+                    Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
+                    itemClickedLocation.onITemClick(paymentId)
+                },
+                onError = { component, error ->
+                    Toast.makeText(this@CheckActivity, "Payment Failed!", Toast.LENGTH_LONG).show()
+                    Log.e("Checkout", "❌ onError ${component.name}: $error")
+                }
+            )
+
+            // 3️⃣ Checkout configuration
+            val configuration = CheckoutComponentConfiguration(
+                context = this@CheckActivity,
+                paymentSession = PaymentSessionResponse(
+                    id = id,
+                    paymentSessionToken = paymentSessionToken,
+                    paymentSessionSecret = paymentSessionSecret
+                ),
+                publicKey = publicKey,
+                environment = Environment.SANDBOX,
+                flowCoordinators = flowCoordinators,
+                componentCallback = componentCallback
+            )
+
+            // 4️⃣ ComponentOption: hide default SDK Pay button + RememberMe enabled
+
+            val componentOption = ComponentOption(
+                showPayButton = false,
+                rememberMeConfiguration = RememberMeConfiguration(
+                    data = RememberMeConfiguration.Data(email = "syedbilal.ezhire"),
+                    showPayButton = true
+                )
+            )
+
+// Create Checkout components
+            checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
+
+// Initialize both components
+            // Create Checkout components
+            checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
+
+// Create Flow component (this includes Google Pay + Card)
+            val flowComponent = checkoutComponents?.create(
+                ComponentName.Flow,
+                componentOption
+            )
+
+            withContext(Dispatchers.Main) {
+
+                // Show flow view (Card UI will appear inside)
+                containerView.removeAllViews()
+                val flowView = flowComponent?.provideView(containerView)
+                containerView.addView(flowView)
+
+                // Manual pay button click
                 btnPayNow.setOnClickListener {
                     lifecycleScope.launch {
-                        val isValid = cardComponent?.isValid() ?: false
-                        if (isValid) {
-                            Log.d("CardComponent", "Pay Now clicked - submitting")
-                            cardComponent.submit() // suspend function
+
+                        // Check if Flow component is valid
+                        val valid = flowComponent?.isValid() ?: false
+
+                        if (valid) {
+                            Toast.makeText(this@CheckActivity, "VALID INPUT!", Toast.LENGTH_SHORT).show()
+
+                            // Submit payment
+                            flowComponent?.submit()
                         } else {
                             Toast.makeText(
                                 this@CheckActivity,
                                 "Please enter valid card details",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            Log.d("CardComponent", "Card invalid, cannot submit")
                         }
                     }
                 }
             }
+
+
+//            withContext(Dispatchers.Main) {
+//                // Clear container and render card view
+//                 containerView.removeAllViews()
+//                val cardView = cardComponent?.provideView(containerView)
+//                containerView.addView(cardView)
+//
+//
+//
+//
+//                // Initially disable custom Pay Now button
+////                btnPayNow.isEnabled = false
+////
+////                // 7️⃣ Poll for validity and enable/disable custom button
+////                lifecycleScope.launch {
+////                    while (true) {
+////                        val isValid = cardComponent?.isValid() ?: false
+////                        btnPayNow.isEnabled = isValid
+////                        delay(200) // check every 200ms
+////                    }
+////                }
+//
+//                // 8️⃣ Custom Pay Now button click
+////                btnPayNow.setOnClickListener {
+////                    lifecycleScope.launch {
+////                        val isValid = cardComponent?.isValid() ?: false
+////                        if (isValid) {
+////                            Log.d("CardComponent", "Pay Now clicked - submitting")
+////                            cardComponent.submit() // suspend function
+////                        } else {
+////                            Toast.makeText(
+////                                this@CheckActivity,
+////                                "Please enter valid card details",
+////                                Toast.LENGTH_SHORT
+////                            ).show()
+////                            Log.d("CardComponent", "Card invalid, cannot submit")
+////                        }
+////                    }
+////                }
+//            }
 
         } catch (e: Exception) {
             Log.e("Checkout", "❌ Exception: ${e.message}", e)

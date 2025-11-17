@@ -8,9 +8,11 @@ import android.os.Handler
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.os.bundleOf
 import com.example.paymentcheck.CheckActivity
 import com.example.paymentcheck.MainActivity2
 import com.example.paymentcheck.OnDataPass
+import com.example.paymentcheck.ui.theme.PaymentBottomSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -33,11 +35,12 @@ class MainActivity : AppCompatActivity()  {
         setContentView(R.layout.activity_main)
 
         val userData = hashMapOf(
-            "id" to "ps_359I5KdWlKJuTOMWrn8SN64D5hL",
-            "paymentSessionToken" to "YmFzZTY0:eyJpZCI6InBzXzM1NlF0d3k2dW5hVjFnV3FGZTJNREZmVFhQeSIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMCwibG9jYWxlIjoiZW4tR0IiLCJjdXJyZW5jeSI6IkFFRCIsInBheW1lbnRfbWV0aG9kcyI6W3sidHlwZSI6InJlbWVtYmVyX21lIiwiY2FyZF9zY2hlbWVzIjpbIlZpc2EiLCJNYXN0ZXJjYXJkIiwiQW1leCJdLCJlbWFpbCI6InRlc3RhcnF1bWNoZWNrQHlvcG1haWwuY29tIiwicGhvbmUiOnsibnVtYmVyIjoiMzQwODcyNzY2NyIsImNvdW50cnlfY29kZSI6IjkyIn0sImJpbGxpbmdfYWRkcmVzcyI6eyJjaXR5IjoiRHViYWkiLCJjb3VudHJ5IjoiQUUifSwiZGlzcGxheV9tb2RlIjoiY2hlY2tib3gifSx7InR5cGUiOiJjYXJkIiwiY2FyZF9zY2hlbWVzIjpbIlZpc2EiLCJNYXN0ZXJjYXJkIiwiQW1leCJdLCJzY2hlbWVfY2hvaWNlX2VuYWJsZWQiOmZhbHNlLCJzdG9yZV9wYXltZW50X2RldGFpbHMiOiJlbmFibGVkIiwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9fSx7InR5cGUiOiJhcHBsZXBheSIsImRpc3BsYXlfbmFtZSI6ImVaaGlyZSIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCIsIm1lcmNoYW50X2NhcGFiaWxpdGllcyI6WyJzdXBwb3J0czNEUyJdLCJzdXBwb3J0ZWRfbmV0d29ya3MiOlsidmlzYSIsIm1hc3RlckNhcmQiLCJhbWV4Il0sInRvdGFsIjp7ImxhYmVsIjoiZVpoaXJlIiwidHlwZSI6ImZpbmFsIiwiYW1vdW50IjoiMSJ9fSx7InR5cGUiOiJnb29nbGVwYXkiLCJtZXJjaGFudCI6eyJpZCI6IjA4MTEzMDg5Mzg2MjY4ODQ5OTgyIiwibmFtZSI6ImVaaGlyZSIsIm9yaWdpbiI6Imh0dHBzOi8vd3d3LmV6aGlyZS5tZSJ9LCJ0cmFuc2FjdGlvbl9pbmZvIjp7InRvdGFsX3ByaWNlX3N0YXR1cyI6IkZJTkFMIiwidG90YWxfcHJpY2UiOiIxIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIn0sImNhcmRfcGFyYW1ldGVycyI6eyJhbGxvd2VkX2F1dGhfbWV0aG9kcyI6WyJQQU5fT05MWSIsIkNSWVBUT0dSQU1fM0RTIl0sImFsbG93ZWRfY2FyZF9uZXR3b3JrcyI6WyJWSVNBIiwiTUFTVEVSQ0FSRCIsIkFNRVgiXX19XSwiZmVhdHVyZV9mbGFncyI6WyJhbmFseXRpY3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwiY2FyZF9maWVsZHNfZW5hYmxlZCIsImdldF93aXRoX3B1YmxpY19rZXlfZW5hYmxlZCIsImxvZ3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwicmlza19qc19lbmFibGVkIiwidXNlX25vbl9iaWNfaWRlYWxfaW50ZWdyYXRpb24iXSwicmlzayI6eyJlbmFibGVkIjpmYWxzZX0sIm1lcmNoYW50X25hbWUiOiJlWmhpcmUiLCJwYXltZW50X3Nlc3Npb25fc2VjcmV0IjoicHNzXzI1ZGI0Y2E4LTY5MTYtNGFjYi1iNjJiLTc2NzIwYmJmYjA2ZiIsInBheW1lbnRfdHlwZSI6IlJlZ3VsYXIiLCJpbnRlZ3JhdGlvbl9kb21haW4iOiJkZXZpY2VzLmFwaS5zYW5kYm94LmNoZWNrb3V0LmNvbSJ9",
-            "paymentSessionSecret" to "pss_78ed587a-ec33-450f-99a3-cabb73eb1dac",
+            "id" to "ps_35cNCVNK61jJQmRae5W3RnWOGwe",
+            "paymentSessionToken" to "YmFzZTY0:eyJpZCI6InBzXzM1Y05DVk5LNjFqSlFtUmFlNVczUm5XT0d3ZSIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMCwibG9jYWxlIjoiZW4tR0IiLCJjdXJyZW5jeSI6IkFFRCIsInBheW1lbnRfbWV0aG9kcyI6W3sidHlwZSI6InJlbWVtYmVyX21lIiwiZW1haWwiOiJ0ZXN0YXJxdW1jaGVja0B5b3BtYWlsLmNvbSIsInBob25lIjp7Im51bWJlciI6IjM0MDg3Mjc2NjciLCJjb3VudHJ5X2NvZGUiOiI5MiJ9LCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sImJpbGxpbmdfYWRkcmVzcyI6eyJjaXR5IjoiRHViYWkiLCJjb3VudHJ5IjoiQUUifSwiZGlzcGxheV9tb2RlIjoiY2hlY2tib3gifSx7InR5cGUiOiJjYXJkIiwiY2FyZF9zY2hlbWVzIjpbIlZpc2EiLCJNYXN0ZXJjYXJkIiwiQW1leCJdLCJzY2hlbWVfY2hvaWNlX2VuYWJsZWQiOmZhbHNlLCJzdG9yZV9wYXltZW50X2RldGFpbHMiOiJpbXBsaWNpdGx5X2VuYWJsZWQiLCJiaWxsaW5nX2FkZHJlc3MiOnsiY2l0eSI6IkR1YmFpIiwiY291bnRyeSI6IkFFIn19LHsidHlwZSI6ImFwcGxlcGF5IiwiZGlzcGxheV9uYW1lIjoiZVpoaXJlIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIiwibWVyY2hhbnRfY2FwYWJpbGl0aWVzIjpbInN1cHBvcnRzM0RTIl0sInN1cHBvcnRlZF9uZXR3b3JrcyI6WyJ2aXNhIiwibWFzdGVyQ2FyZCIsImFtZXgiXSwidG90YWwiOnsibGFiZWwiOiJlWmhpcmUiLCJ0eXBlIjoiZmluYWwiLCJhbW91bnQiOiIxIn19LHsidHlwZSI6Imdvb2dsZXBheSIsIm1lcmNoYW50Ijp7ImlkIjoiMDgxMTMwODkzODYyNjg4NDk5ODIiLCJuYW1lIjoiZVpoaXJlIiwib3JpZ2luIjoiaHR0cHM6Ly93d3cuZXpoaXJlLm1lIn0sInRyYW5zYWN0aW9uX2luZm8iOnsidG90YWxfcHJpY2Vfc3RhdHVzIjoiRklOQUwiLCJ0b3RhbF9wcmljZSI6IjEiLCJjb3VudHJ5X2NvZGUiOiJHQiIsImN1cnJlbmN5X2NvZGUiOiJBRUQifSwiY2FyZF9wYXJhbWV0ZXJzIjp7ImFsbG93ZWRfYXV0aF9tZXRob2RzIjpbIlBBTl9PTkxZIiwiQ1JZUFRPR1JBTV8zRFMiXSwiYWxsb3dlZF9jYXJkX25ldHdvcmtzIjpbIlZJU0EiLCJNQVNURVJDQVJEIiwiQU1FWCJdfX1dLCJmZWF0dXJlX2ZsYWdzIjpbImFuYWx5dGljc19vYnNlcnZhYmlsaXR5X2VuYWJsZWQiLCJjYXJkX2ZpZWxkc19lbmFibGVkIiwiZ2V0X3dpdGhfcHVibGljX2tleV9lbmFibGVkIiwibG9nc19vYnNlcnZhYmlsaXR5X2VuYWJsZWQiLCJyaXNrX2pzX2VuYWJsZWQiLCJ1c2Vfbm9uX2JpY19pZGVhbF9pbnRlZ3JhdGlvbiJdLCJyaXNrIjp7ImVuYWJsZWQiOmZhbHNlfSwibWVyY2hhbnRfbmFtZSI6ImVaaGlyZSIsInBheW1lbnRfc2Vzc2lvbl9zZWNyZXQiOiJwc3NfMjNiOGFhMjItN2Y3ZC00ZmJjLWJhNGEtMWE3M2FlODQwNmQwIiwicGF5bWVudF90eXBlIjoiVW5zY2hlZHVsZWQiLCJpbnRlZ3JhdGlvbl9kb21haW4iOiJkZXZpY2VzLmFwaS5zYW5kYm94LmNoZWNrb3V0LmNvbSJ9",
+            "paymentSessionSecret" to "pss_23b8aa22-7f7d-4fbc-ba4a-1a73ae8406d0",
             "publicKey" to "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
-            "email" to "android155@yomail.com"
+            "email" to "android155@yomail.com",
+            "env" to false
         )
 
 //        val bottomSheetFragment = BottomSheetFragment(userData)
@@ -48,6 +51,21 @@ class MainActivity : AppCompatActivity()  {
         val intent = Intent(this@MainActivity, MainActivity2::class.java)
         intent.putExtra("userData", userData)
         paymentLauncher.launch(intent)
+
+
+
+
+//        val sheet = PaymentBottomSheet().apply {
+//            arguments = Bundle().apply {
+//                putString("id", userData["id"])
+//                putString("paymentSessionToken", userData["paymentSessionToken"])
+//                putString("paymentSessionSecret", userData["paymentSessionSecret"])
+//                putString("publicKey", userData["publicKey"])
+//                putString("email", userData["email"])
+//            }
+//        }
+//
+//        sheet.show(supportFragmentManager, "PaymentBottomSheet")
 
 
         // CheckoutFuctionImplement()
