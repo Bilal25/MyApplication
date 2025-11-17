@@ -11,4 +11,5 @@
     <string name="invalid_password">Password must be >5 characters</string>
     <string name="login_failed">"Login failed"</string>
     <string name="title_activity_custom_checkout">CustomCheckout</string>
+    <string name="title_activity_main3">MainActivity3</string>
 </resources>
