@@ -95,11 +95,14 @@ class MainActivity3 : ComponentActivity() {
             isLoading = false
             payButtonEnabled = true
             isComponentValid = false
-            Toast.makeText(
-                this@MainActivity3,
-                "Error: ${checkoutError.message}, ${checkoutError.code}",
-                Toast.LENGTH_LONG
-            ).show()
+            runOnUiThread {
+                Toast.makeText(
+                    this@MainActivity3,
+                    "Error: ${checkoutError.message}, ${checkoutError.code}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
             Log.e("flow component error", "${checkoutError.message}, ${checkoutError.code}")
         }
     )
@@ -140,9 +143,10 @@ class MainActivity3 : ComponentActivity() {
             componentCallback = customComponentCallback,
             publicKey = publicKey,
             flowCoordinators = flowCoordinators,
-            environment = if (envValue) Environment.PRODUCTION else Environment.SANDBOX
-        )
+            environment = Environment.PRODUCTION
 
+        )
+//        environment = if (envValue) Environment.PRODUCTION else Environment.SANDBOX
         return componentOption to config
     }
 
