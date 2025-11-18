@@ -143,10 +143,10 @@ class MainActivity3 : ComponentActivity() {
             componentCallback = customComponentCallback,
             publicKey = publicKey,
             flowCoordinators = flowCoordinators,
-            environment = Environment.PRODUCTION
+            environment = if (envValue) Environment.PRODUCTION else Environment.SANDBOX
 
         )
-//        environment = if (envValue) Environment.PRODUCTION else Environment.SANDBOX
+//
         return componentOption to config
     }
 
