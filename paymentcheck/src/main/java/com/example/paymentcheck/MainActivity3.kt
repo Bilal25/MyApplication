@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.checkout.components.core.CheckoutComponentsFactory
 import com.checkout.components.interfaces.Environment
@@ -44,6 +46,7 @@ import com.example.paymentcheck.OnDataPass
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity3 : ComponentActivity() {
@@ -186,7 +189,12 @@ class MainActivity3 : ComponentActivity() {
             var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
             var selectedMethod by remember { mutableStateOf("") }
             var isCardAvailable by remember { mutableStateOf(false) }
+            var showLogo by remember { mutableStateOf(false) }
 
+            LaunchedEffect(Unit) {
+                delay(3000)   // ⬅️ delay time (you can increase/decrease)
+                showLogo = true
+            }
             // Auto-select card if session available
             LaunchedEffect(Unit) {
                 if (paymentSessionID.isNotBlank() && paymentSessionSecret.isNotBlank()) {
@@ -235,6 +243,17 @@ class MainActivity3 : ComponentActivity() {
                 verticalArrangement = Arrangement.Center
             ) {
                 item {
+
+                    if (showLogo) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_ezhire_big_logo),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 26.dp)
+                                .height(60.dp)
+                        )
+                    }
                     if (selectedMethod == "card" && isCardAvailable) {
                         flow?.Render()
                         Spacer(modifier = Modifier.height(20.dp))
