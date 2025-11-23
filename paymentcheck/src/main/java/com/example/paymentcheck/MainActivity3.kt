@@ -13,6 +13,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +64,9 @@ class MainActivity3 : ComponentActivity() {
     private var isComponentValid by mutableStateOf(false)
     private var isLoading by mutableStateOf(false)
     private var payButtonEnabled by mutableStateOf(false)
+    companion object{
+        var callSession  = false
+    }
 
     internal var itemClickedLocation: OnDataPass = object : OnDataPass {
         override fun onDataSend(data: HashMap<String, Any>) {}
@@ -191,92 +197,125 @@ class MainActivity3 : ComponentActivity() {
             var isCardAvailable by remember { mutableStateOf(false) }
             var showLogo by remember { mutableStateOf(false) }
 
-            LaunchedEffect(Unit) {
-                delay(3000)   // ⬅️ delay time (you can increase/decrease)
-                showLogo = true
-            }
-            // Auto-select card if session available
-            LaunchedEffect(Unit) {
-                if (paymentSessionID.isNotBlank() && paymentSessionSecret.isNotBlank()) {
-                    selectedMethod = "card"
-                }
-            }
-
-            LaunchedEffect(selectedMethod) {
-                if (selectedMethod == "card") {
-                    val (options, config) = createConfigs(
-                        paymentSessionID,
-                        paymentSessionSecret,
-                        email,
-                        publicKey,
-                        envValue
-                    )
-
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            checkoutComponents = CheckoutComponentsFactory(config).create()
-                            flow = checkoutComponents.create(ComponentName.Flow, options)
-                            isCardAvailable = flow?.isAvailable() ?: false
-
-                            val isValidStatus = flow?.isValid() ?: false
-                            isComponentValid = isValidStatus
-                            payButtonEnabled = isComponentValid
-
-                        } catch (checkoutError: CheckoutError) {
-                            isComponentValid = false
-                            payButtonEnabled = false
-                            Log.e(
-                                "flow component error",
-                                "Initialization error: ${checkoutError.message}, Details: ${checkoutError.details}"
-                            )
-                        }
-                    }
-                }
-            }
-
-            LazyColumn(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .safeDrawingPadding()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .padding(top = 16.dp, start = 16.dp)
             ) {
-                item {
 
-                    if (showLogo) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_ezhire_big_logo),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 26.dp)
-                                .height(60.dp)
-                        )
+                // 🔹 TOP-LEFT CLOSE BUTTON
+                IconButton(
+                    onClick = { finish() },         // <-- close activity
+                    modifier = Modifier.align(Alignment.TopStart)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),   // your close icon
+                        contentDescription = "Close"
+                    )
+                }
+                LaunchedEffect(Unit) {
+                    delay(3000)   // ⬅️ delay time (you can increase/decrease)
+                    showLogo = true
+                }
+                // Auto-select card if session available
+                LaunchedEffect(Unit) {
+                    if (paymentSessionID.isNotBlank() && paymentSessionSecret.isNotBlank()) {
+                        selectedMethod = "card"
                     }
-                    if (selectedMethod == "card" && isCardAvailable) {
-                        flow?.Render()
-                        Spacer(modifier = Modifier.height(20.dp))
+                }
 
-                        Button(
-                            enabled = payButtonEnabled && !isLoading,
-                            onClick = {
-                                uiScope.launch {
-                                    isLoading = true
-                                    payButtonEnabled = false
-                                    flow?.submit() // async
+                LaunchedEffect(selectedMethod) {
+                    if (selectedMethod == "card") {
+                        val (options, config) = createConfigs(
+                            paymentSessionID,
+                            paymentSessionSecret,
+                            email,
+                            publicKey,
+                            envValue
+                        )
+                        CoroutineScope(Dispatchers.Main).launch {
+                            runCatching {
+                                checkoutComponents = CheckoutComponentsFactory(config).create()
+                                flow = checkoutComponents.create(ComponentName.Flow, options)
+
+                                isCardAvailable = flow?.isAvailable() ?: false
+                                val isValidStatus = flow?.isValid() ?: false
+                                isComponentValid = isValidStatus
+                                payButtonEnabled = isComponentValid
+
+                            }.onFailure {
+                                isComponentValid = false
+                                payButtonEnabled = false
+                                Log.e("checkout", "Crash saved: ${it.message}", it)
+                            }
+                        }
+
+//                        CoroutineScope(Dispatchers.IO).launch {
+//                            try {
+//                                checkoutComponents = CheckoutComponentsFactory(config).create()
+//                                flow = checkoutComponents.create(ComponentName.Flow, options)
+//                                isCardAvailable = flow?.isAvailable() ?: false
+//
+//                                val isValidStatus = flow?.isValid() ?: false
+//                                isComponentValid = isValidStatus
+//                                payButtonEnabled = isComponentValid
+//
+//                            } catch (checkoutError: CheckoutError) {
+//                                isComponentValid = false
+//                                payButtonEnabled = false
+//                                Log.e(
+//                                    "flow component error",
+//                                    "Initialization error: ${checkoutError.message}, Details: ${checkoutError.details}"
+//                                )
+//                            }
+//                        }
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .safeDrawingPadding()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    item {
+
+                        if (showLogo) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_ezhire_big_logo),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 26.dp)
+                                    .height(60.dp)
+                            )
+                        }
+                        if (selectedMethod == "card" && isCardAvailable) {
+                            flow?.Render()
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Button(
+                                enabled = payButtonEnabled && !isLoading,
+                                onClick = {
+                                    uiScope.launch {
+                                        isLoading = true
+                                        payButtonEnabled = false
+                                        flow?.submit() // async
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp)
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                } else {
+                                    Text("Pay Now")
                                 }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp)
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            } else {
-                                Text("Pay Now")
                             }
                         }
                     }
