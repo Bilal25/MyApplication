@@ -192,7 +192,7 @@ class MainActivity3 : ComponentActivity() {
         paymentSessionSecret: String,
         publicKey: String,
         email: String,
-        envValue: Boolean
+        envValue: String
     ) {
         setContent {
             var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
