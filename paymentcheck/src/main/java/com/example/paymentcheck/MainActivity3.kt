@@ -121,7 +121,7 @@ class MainActivity3 : ComponentActivity() {
         paymentSessionSecret: String,
         email: String,
         publicKey: String,
-        envValue: Boolean
+        envValue: String
     ): Pair<ComponentOption, CheckoutComponentConfiguration> {
 
         val rememberMeConfiguration = RememberMeConfiguration(
@@ -152,10 +152,13 @@ class MainActivity3 : ComponentActivity() {
             componentCallback = customComponentCallback,
             publicKey = publicKey,
             flowCoordinators = flowCoordinators,
-            environment = if (envValue) Environment.PRODUCTION else Environment.SANDBOX
-
+             environment = if (envValue == "true" || envValue == "1") {
+                Environment.PRODUCTION
+            } else {
+                Environment.SANDBOX
+            }
         )
-//
+//            environment = if (envValue) Environment.PRODUCTION else Environment.SANDBOX
         return componentOption to config
     }
 
@@ -169,7 +172,7 @@ class MainActivity3 : ComponentActivity() {
         var paymentSessionSecret = ""
         var publicKey = ""
         var email = ""
-        var envValue = false
+        var envValue = ""
 
         userData?.let {
             id = it["id"]!!
@@ -177,7 +180,7 @@ class MainActivity3 : ComponentActivity() {
             paymentSessionSecret = it["paymentSessionSecret"]!!
             publicKey = it["publicKey"]!!
             email = it["email"]!!
-            envValue = it["env"] as? Boolean ?: false
+            envValue = it["env"]!!
         }
 
         renderContent(id, paymentSessionToken, paymentSessionSecret, publicKey, email, envValue)
