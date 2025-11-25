@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.checkout.components.core.CheckoutComponentsFactory
@@ -320,6 +322,9 @@ class MainActivity3 : ComponentActivity() {
                                             flow?.submit()
                                         }
                                     },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF7A5CA7)   // 👈 Your background color
+                                    ),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(top = 16.dp)
