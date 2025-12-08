@@ -65,7 +65,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class PaymentBottomSheet(
-    private val userDataGooglePay: HashMap<String, String>,
+    private val userDataGooglePay2: HashMap<String, String>,
     private val onPaymentSuccess: (String) -> Unit
 ) : BottomSheetDialogFragment() {
 
