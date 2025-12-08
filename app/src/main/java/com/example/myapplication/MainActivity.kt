@@ -52,15 +52,15 @@ class MainActivity : AppCompatActivity()  {
 //         paymentLauncher.launch(intent)
 
 
-
-        val sheet = PaymentBottomSheet(userDataGooglePay) { paymentId ->
-            val resultIntent = Intent()
-            resultIntent.putExtra("paymentId", paymentId)
-            setResult(RESULT_OK, resultIntent)
-            finish()
-        }
-
-        sheet.show(supportFragmentManager, "paymentSheet")
+//        val sheet = PaymentBottomSheet(userDataGooglePay) { paymentId, isGooglePay ->
+//            val resultIntent = Intent()
+//            resultIntent.putExtra("paymentId", paymentId)
+//            resultIntent.putExtra("isGooglePay", isGooglePay)  // ✅ pass boolean
+//            setResult(RESULT_OK, resultIntent)
+//            finish()
+//        }
+//
+//        sheet.show(supportFragmentManager, "paymentSheet")
 
 
 

@@ -66,8 +66,9 @@ import kotlinx.coroutines.withContext
 
 class PaymentBottomSheet(
     private val userDataGooglePay2: HashMap<String, String>,
-    private val onPaymentSuccess: (String) -> Unit
+    private val onPaymentSuccess: (String, Boolean) -> Unit
 ) : BottomSheetDialogFragment() {
+    private var GooglePayEnabled = true
 
     private lateinit var checkoutComponents: CheckoutComponents
     private lateinit var coordinator: GooglePayFlowCoordinator
@@ -96,6 +97,7 @@ class PaymentBottomSheet(
 
             if (component.name == PaymentMethodName.GooglePay) {
                 Log.d("flow component", "Goo")
+                GooglePayEnabled = true
                 // Your GooglePay logic here
             }
 
@@ -104,7 +106,7 @@ class PaymentBottomSheet(
         onSuccess = { component, paymentID ->
             isLoading = false
             payButtonEnabled = false
-            onPaymentSuccess(paymentID)     // callback to Activity
+            onPaymentSuccess(paymentID,GooglePayEnabled)     // callback to Activity
             dismiss()
         },
         onError = { component, checkoutError ->

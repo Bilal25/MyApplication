@@ -78,6 +78,7 @@ class MainActivity3 : ComponentActivity() {
         override fun onITemClick(data: String,Google : Boolean) {
             val resultIntent = Intent()
             resultIntent.putExtra("paymentId", data)
+            resultIntent.putExtra("isGooglePay", Google)
             setResult(RESULT_OK, resultIntent)
             finish()
         }
