@@ -176,7 +176,7 @@ class MainActivity3 : ComponentActivity() {
         var publicKey = ""
         var email = ""
         var envValue = ""
-
+      //  var googlepay = ""
         userData?.let {
             id = it["id"]!!
             paymentSessionToken = it["paymentSessionToken"]!!

@@ -1,18 +1,46 @@
 package com.example.paymentcheck
 
+import android.app.Dialog
 import android.content.Intent
 import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
-import android.widget.Button
-import android.widget.FrameLayout
-import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import com.checkout.components.core.CheckoutComponentsFactory
 import com.checkout.components.interfaces.Environment
 import com.checkout.components.interfaces.api.CheckoutComponents
@@ -20,929 +48,243 @@ import com.checkout.components.interfaces.api.PaymentMethodComponent
 import com.checkout.components.interfaces.component.CheckoutComponentConfiguration
 import com.checkout.components.interfaces.component.ComponentCallback
 import com.checkout.components.interfaces.component.ComponentOption
-import com.checkout.components.interfaces.component.FlowCoordinator
 import com.checkout.components.interfaces.component.RememberMeConfiguration
 import com.checkout.components.interfaces.error.CheckoutError
 import com.checkout.components.interfaces.model.ComponentName
 import com.checkout.components.interfaces.model.PaymentMethodName
 import com.checkout.components.interfaces.model.PaymentSessionResponse
 import com.checkout.components.wallet.wrapper.GooglePayFlowCoordinator
+import com.example.paymentcheck.OnDataPass
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.URL
 
-class CheckActivity : AppCompatActivity(),OnDataPass {
+class PaymentBottomSheet(
+    private val userData: HashMap<String, String>,
+    private val onPaymentSuccess: (String) -> Unit
+) : BottomSheetDialogFragment() {
+
+    private lateinit var checkoutComponents: CheckoutComponents
     private lateinit var coordinator: GooglePayFlowCoordinator
-    var  paymentMethodSupportedList: List<String> = listOf("card", "googlepay")
-    private val googlePayFlowCoordinator = MutableStateFlow<FlowCoordinator?>(null)
-     var checkoutComponents: CheckoutComponents? = null
-    private var flowco: PaymentMethodComponent? = null
 
-    // var cardcom = null
-    private var cardcom: PaymentMethodComponent? = null
-    private var currentView: View? = null
-    private var googleCoordinator: GooglePayFlowCoordinator? = null
-    private var lastConfig: CheckoutComponentConfiguration? = null
+    private var isComponentValid by mutableStateOf(false)
+    private var isLoading by mutableStateOf(false)
+    private var payButtonEnabled by mutableStateOf(false)
 
-   // private var currentComponent: CheckoutComponents? = null
-   // private var paymentComponent: CheckoutComponent? = null
+    private val uiScope = CoroutineScope(Dispatchers.Main)
 
-    private lateinit var containerView: FrameLayout
-    private lateinit var btnPayNow: Button
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
-        supportActionBar?.hide()
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_check)
-
-
-        ///val bottomSheetLayout: View = findViewById(R.id.bottomSheetLayout)
-        containerView = findViewById(R.id.checkoutContainer)
-          btnPayNow  = findViewById(R.id.btnPayNow)
-      //  val titleText: TextView = bottomSheetLayout.findViewById(R.id.titleText)
-
-
-//        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-//            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-//            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-//            insets
-//        }
-
-
-        MainScope().launch {
-            val userData = intent.getSerializableExtra("userData") as? HashMap<String, String>
-            var id = ""
-            var paymentSessionToken = ""
-            var paymentSessionSecret = ""
-            var publicKey = ""
-            userData?.let {
-                 id = it["id"]!!
-                 paymentSessionToken = it["paymentSessionToken"]!!
-                 paymentSessionSecret = it["paymentSessionSecret"]!!
-                 publicKey = it["publicKey"]!!
+    private val customComponentCallback = ComponentCallback(
+        onReady = { component ->
+            uiScope.launch {
+                isComponentValid = component.isValid()
+                payButtonEnabled = isComponentValid
             }
-            checkoutWithGoogleV3(id,paymentSessionToken,paymentSessionSecret,publicKey)
-//            btnPayNow.setOnClickListener {
-//                lifecycleScope.launch {
-//                    val valid = cardcom?.isValid() ?: false
-//
-//                    if (valid) {
-//                        Toast.makeText(this@CheckActivity, "Valid Card", Toast.LENGTH_SHORT).show()
-//
-//                        // Submit Flow component to start payment
-//                        flowco?.submit()
-//                    } else {
-//                        Toast.makeText(
-//                            this@CheckActivity,
-//                            "Please enter valid card details",
-//                            Toast.LENGTH_SHORT
-//                        ).show()
-//                    }
-//                }
-//            }
-             // CheckoutFuctionImplement(id,paymentSessionToken,paymentSessionSecret,publicKey)
-           // testlayout(id,paymentSessionToken,paymentSessionSecret,publicKey)
+        },
+        onChange = { component ->
+            uiScope.launch {
+                isComponentValid = component.isValid()
+                payButtonEnabled = isComponentValid
+            }
+        },
+        onSubmit = { component ->
+            Log.d("flow component", "onSubmit ${component.name}")
+        },
+        onSuccess = { component, paymentID ->
+            isLoading = false
+            payButtonEnabled = false
+            onPaymentSuccess(paymentID)     // callback to Activity
+            dismiss()
+        },
+        onError = { component, checkoutError ->
+            isLoading = false
+            payButtonEnabled = false
+            isComponentValid = false
 
-
+            Toast.makeText(
+                requireContext(),
+                "Error: ${checkoutError.message}",
+                Toast.LENGTH_LONG
+            ).show()
         }
+    )
 
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        return BottomSheetDialog(requireContext(), theme)
     }
 
+    companion object {
+        private const val ARG_USER_DATA = "userData"
+        lateinit var userData: HashMap<String, String>
 
 
-
-
-    fun updatePaymentComponent() {
-        val updatedComponent = checkoutComponents?.create(ComponentName.Flow)
-
-        GlobalScope.launch(Dispatchers.Main) {
-            containerView.removeAllViews()
-            containerView.addView(updatedComponent!!.provideView(containerView))
-
-        }
     }
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
 
-
-
-
-    fun hideAllButtons(view: View) {
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                val child = view.getChildAt(i)
-                if (child is Button) child.visibility = View.GONE
-                if (child is ViewGroup) hideAllButtons(child)
+        return ComposeView(requireContext()).apply {
+            setContent {
+                PaymentBottomSheetContent(userData)
             }
         }
     }
-    private suspend fun checkoutWithGoogleV2(
-        id: String,
-        paymentSessionToken: String,
-        paymentSessionSecret: String,
-        publicKey: String
-    ) {
-        try {
-            // 1️⃣ Coordinator setup for Google Pay
-            coordinator = GooglePayFlowCoordinator(
-                context = this@CheckActivity,
-                handleActivityResult = { resultCode, data ->
-                    checkoutComponents?.handleActivityResult(resultCode, data)
-                    Log.d("GooglePay", "Activity result received: $resultCode")
-                }
-            )
-
-            val flowCoordinators = mapOf(
-                PaymentMethodName.GooglePay to coordinator!!
-            )
-
-            // 2️⃣ Component callback setup
-            val componentCallback = ComponentCallback(
-                onReady = { component ->
-                    Log.d("Checkout", "onReady: ${component.name}")
-                },
-                onSubmit = { component ->
-                    Log.d("Checkout", "onSubmit: ${component.name}")
-                },
-                onSuccess = { component, paymentId ->
-                    Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
-                    itemClickedLocation.onITemClick(paymentId)
-                },
-                onError = { component, error ->
-                    Toast.makeText(this@CheckActivity, "Payment Failed!", Toast.LENGTH_LONG).show()
-                    Log.e("Checkout", "❌ onError ${component.name}: $error")
-                }
-            )
-
-            // 3️⃣ Checkout configuration
-            val configuration = CheckoutComponentConfiguration(
-                context = this@CheckActivity,
-                paymentSession = PaymentSessionResponse(
-                    id = id,
-                    paymentSessionToken = paymentSessionToken,
-                    paymentSessionSecret = paymentSessionSecret
-                ),
-                publicKey = publicKey,
-                environment = Environment.SANDBOX,
-                flowCoordinators = flowCoordinators,
-                componentCallback = componentCallback
-            )
-
-            // 4️⃣ ComponentOption: hide default SDK Pay button + RememberMe enabled
-            val componentOption = ComponentOption(
-                showPayButton = true,
-//                rememberMeConfiguration = RememberMeConfiguration(
-//                    data = RememberMeConfiguration.Data(email = "syedbilal.ezhire"),
-//                    showPayButton = true
-//                )
-            )
-
-            // 5️⃣ Create Checkout components
-            checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
 
 
-            // 6️⃣ Create Card component with ComponentOption
-            val cardComponent = checkoutComponents?.create(ComponentName.Flow , componentOption)
-            withContext(Dispatchers.Main) {
-                containerView.removeAllViews()
-                val cardView = cardComponent?.provideView(containerView)
-                containerView.addView(cardView)
+    // -----------------------------------------
+    //  BOTTOM SHEET COMPOSE UI CONTENT
+    // -----------------------------------------
+    @Composable
+    fun PaymentBottomSheetContent(userData: HashMap<String, String>) {
 
-                // Optionally check readiness
-                lifecycleScope.launch {
-                    val ready = cardComponent?.isValid() ?: false
-                    if (ready) {
-                        Log.d("GooglePay", "Google Pay component is ready")
-                    } else {
-                        Log.d("GooglePay", "Google Pay not ready")
-                    }
-                }
-            }
+        val paymentSessionID = userData["id"] ?: ""
+        val paymentSessionSecret = userData["paymentSessionSecret"] ?: ""
+        val publicKey = userData["publicKey"] ?: ""
+        val email = userData["email"] ?: ""
+        val envValue = userData["env"] ?: ""
 
-//            withContext(Dispatchers.Main) {
-//                // Clear container and render card view
-//                 containerView.removeAllViews()
-//                val cardView = cardComponent?.provideView(containerView)
-//                containerView.addView(cardView)
-//
-//
-//
-//
-//                // Initially disable custom Pay Now button
-////                btnPayNow.isEnabled = false
-////
-////                // 7️⃣ Poll for validity and enable/disable custom button
-////                lifecycleScope.launch {
-////                    while (true) {
-////                        val isValid = cardComponent?.isValid() ?: false
-////                        btnPayNow.isEnabled = isValid
-////                        delay(200) // check every 200ms
-////                    }
-////                }
-//
-//                // 8️⃣ Custom Pay Now button click
-////                btnPayNow.setOnClickListener {
-////                    lifecycleScope.launch {
-////                        val isValid = cardComponent?.isValid() ?: false
-////                        if (isValid) {
-////                            Log.d("CardComponent", "Pay Now clicked - submitting")
-////                            cardComponent.submit() // suspend function
-////                        } else {
-////                            Toast.makeText(
-////                                this@CheckActivity,
-////                                "Please enter valid card details",
-////                                Toast.LENGTH_SHORT
-////                            ).show()
-////                            Log.d("CardComponent", "Card invalid, cannot submit")
-////                        }
-////                    }
-////                }
-//            }
+        var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
+        var selectedMethod by remember { mutableStateOf("") }
+        var isCardAvailable by remember { mutableStateOf(false) }
+        var showLogo by remember { mutableStateOf(false) }
+        var isFlowUIReady by remember { mutableStateOf(false) }
 
-        } catch (e: Exception) {
-            Log.e("Checkout", "❌ Exception: ${e.message}", e)
-            Toast.makeText(this@CheckActivity, "Unexpected Error", Toast.LENGTH_LONG).show()
+        LaunchedEffect(Unit) {
+            delay(2000)
+            showLogo = true
+            selectedMethod = "card"
         }
-    }
-    private suspend fun checkoutWithGoogleV3(
-        id: String,
-        paymentSessionToken: String,
-        paymentSessionSecret: String,
-        publicKey: String
-    ) {
-        try {
-            // 1️⃣ Coordinator setup for Google Pay
-            coordinator = GooglePayFlowCoordinator(
-                context = this@CheckActivity,
-                handleActivityResult = { resultCode, data ->
-                    checkoutComponents?.handleActivityResult(resultCode, data)
-                    Log.d("GooglePay", "Activity result received: $resultCode")
-                }
-            )
 
-            val flowCoordinators = mapOf(
-                PaymentMethodName.GooglePay to coordinator!!
-            )
-
-            // 2️⃣ Component callback setup
-            val componentCallback = ComponentCallback(
-                onReady = { component ->
-                    Log.d("Checkout", "onReady: ${component.name}")
-                },
-                onSubmit = { component ->
-                    Log.d("Checkout", "onSubmit: ${component.name}")
-                },
-                onSuccess = { component, paymentId ->
-                    Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
-                    itemClickedLocation.onITemClick(paymentId)
-                },
-                onError = { component, error ->
-                    Toast.makeText(this@CheckActivity, "Payment Failed!", Toast.LENGTH_LONG).show()
-                    Log.e("Checkout", "❌ onError ${component.name}: $error")
-                }
-            )
-
-            // 3️⃣ Checkout configuration
-            val configuration = CheckoutComponentConfiguration(
-                context = this@CheckActivity,
-                paymentSession = PaymentSessionResponse(
-                    id = id,
-                    paymentSessionToken = paymentSessionToken,
-                    paymentSessionSecret = paymentSessionSecret
-                ),
-                publicKey = publicKey,
-                environment = Environment.SANDBOX,
-                flowCoordinators = flowCoordinators,
-                componentCallback = componentCallback
-            )
-
-            // 4️⃣ ComponentOption: hide default SDK Pay button + RememberMe enabled
-
-            val componentOption = ComponentOption(
-                showPayButton = false,
-                rememberMeConfiguration = RememberMeConfiguration(
-                    data = RememberMeConfiguration.Data(email = "syedbilal.ezhire"),
-                    showPayButton = true
+        // INITIALIZE FLOW
+        LaunchedEffect(selectedMethod) {
+            if (selectedMethod == "card") {
+                val (options, config) = createConfigs(
+                    paymentSessionID,
+                    paymentSessionSecret,
+                    email,
+                    publicKey,
+                    envValue
                 )
-            )
 
-// Create Checkout components
-            checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-
-// Initialize both components
-            // Create Checkout components
-            checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-
-// Create Flow component (this includes Google Pay + Card)
-            val flowComponent = checkoutComponents?.create(
-                ComponentName.Flow,
-                componentOption
-            )
-
-            withContext(Dispatchers.Main) {
-
-                // Show flow view (Card UI will appear inside)
-                containerView.removeAllViews()
-                val flowView = flowComponent?.provideView(containerView)
-                containerView.addView(flowView)
-
-                // Manual pay button click
-                btnPayNow.setOnClickListener {
-                    lifecycleScope.launch {
-
-                        // Check if Flow component is valid
-                        val valid = flowComponent?.isValid() ?: false
-
-                        if (valid) {
-                            Toast.makeText(this@CheckActivity, "VALID INPUT!", Toast.LENGTH_SHORT).show()
-
-                            // Submit payment
-                            flowComponent?.submit()
-                        } else {
-                            Toast.makeText(
-                                this@CheckActivity,
-                                "Please enter valid card details",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        checkoutComponents = CheckoutComponentsFactory(config).create()
+                        flow = checkoutComponents.create(PaymentMethodName.GooglePay, options)
+                    }.onSuccess {
+                        withContext(Dispatchers.Main) {
+                            isCardAvailable = flow?.isAvailable() ?: false
+                            isComponentValid = flow?.isValid() ?: false
+                            payButtonEnabled = isComponentValid
+                            isFlowUIReady = true
+                        }
+                    }.onFailure {
+                        withContext(Dispatchers.Main) {
+                            isFlowUIReady = true
                         }
                     }
                 }
             }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            // CLOSE ICON
+            IconButton(
+                onClick = { dismiss() },
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_close),
+                    contentDescription = "Close"
+                )
+            }
+
+            if (showLogo) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_ezhire_big_logo),
+                    contentDescription = null,
+                    modifier = Modifier.height(60.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            when {
+                !isFlowUIReady -> {
+                    CircularProgressIndicator(Modifier.size(50.dp))
+                }
+
+                selectedMethod == "card" && isCardAvailable -> {
+                    flow?.Render()
+
+                    Spacer(Modifier.height(20.dp))
 
 
-//            withContext(Dispatchers.Main) {
-//                // Clear container and render card view
-//                 containerView.removeAllViews()
-//                val cardView = cardComponent?.provideView(containerView)
-//                containerView.addView(cardView)
-//
-//
-//
-//
-//                // Initially disable custom Pay Now button
-////                btnPayNow.isEnabled = false
-////
-////                // 7️⃣ Poll for validity and enable/disable custom button
-////                lifecycleScope.launch {
-////                    while (true) {
-////                        val isValid = cardComponent?.isValid() ?: false
-////                        btnPayNow.isEnabled = isValid
-////                        delay(200) // check every 200ms
-////                    }
-////                }
-//
-//                // 8️⃣ Custom Pay Now button click
-////                btnPayNow.setOnClickListener {
-////                    lifecycleScope.launch {
-////                        val isValid = cardComponent?.isValid() ?: false
-////                        if (isValid) {
-////                            Log.d("CardComponent", "Pay Now clicked - submitting")
-////                            cardComponent.submit() // suspend function
-////                        } else {
-////                            Toast.makeText(
-////                                this@CheckActivity,
-////                                "Please enter valid card details",
-////                                Toast.LENGTH_SHORT
-////                            ).show()
-////                            Log.d("CardComponent", "Card invalid, cannot submit")
-////                        }
-////                    }
-////                }
-//            }
-
-        } catch (e: Exception) {
-            Log.e("Checkout", "❌ Exception: ${e.message}", e)
-            Toast.makeText(this@CheckActivity, "Unexpected Error", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
 
-
-
-    private suspend fun checkoutWithGoogle(
-        id: String,
-        paymentSessionToken: String,
+    // -----------------------------------------
+    // CREATE CONFIGS SAME AS YOUR ACTIVITY CODE
+    // -----------------------------------------
+    private fun createConfigs(
+        paymentSessionID: String,
         paymentSessionSecret: String,
-        publicKey: String
-    ) {
-        try {
+        email: String,
+        publicKey: String,
+        envValue: String
+    ): Pair<ComponentOption, CheckoutComponentConfiguration> {
 
+        val rememberMeConfig = RememberMeConfiguration(
+            data = RememberMeConfiguration.Data(email = email),
+            showPayButton = false
+        )
 
-// Map of components to their specific configurations
+        val componentOption = ComponentOption(
+            showPayButton = false,
+            rememberMeConfiguration = rememberMeConfig
+        )
 
-        // ✅ Initialize the coordinator
         coordinator = GooglePayFlowCoordinator(
-            context = this@CheckActivity,
+            context = requireContext(),
             handleActivityResult = { resultCode, data ->
-                checkoutComponents?.handleActivityResult(resultCode, data)
-                Log.d("GooglePay", "Activity result received: $resultCode ")
+                checkoutComponents.handleActivityResult(resultCode, data)
             }
         )
 
-        val flowCoordinators = mapOf(
-            PaymentMethodName.GooglePay to coordinator
-        )
+        val flowCoordinators = mapOf(PaymentMethodName.GooglePay to coordinator)
 
-        val configuration = CheckoutComponentConfiguration(
-            context = this@CheckActivity,
+        val config = CheckoutComponentConfiguration(
+            context = requireContext(),
             paymentSession = PaymentSessionResponse(
-                id = id,
-                paymentSessionToken = paymentSessionToken,
-                paymentSessionSecret = paymentSessionSecret
+                id = paymentSessionID,
+                secret = paymentSessionSecret
             ),
-
+            componentCallback = customComponentCallback,
             publicKey = publicKey,
-            environment = Environment.SANDBOX,
-            flowCoordinators =
-                flowCoordinators,
-             componentCallback = ComponentCallback(
-                onReady = { component ->
-                    Log.d("Checkout", "onReady: ${component.name}")
-                },
-                onSubmit = { component ->
-                    Log.d("Checkout", "onSubmit: ${component.name}")
-                },
-                onSuccess = { component, paymentId ->
-                    itemClickedLocation.onITemClick(paymentId)
-                    Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
-                },
-                onError = { component, checkoutError ->
-                  //  updatePaymentComponent()
-
-                  //  Toast.makeText(this@CheckActivity,"Please Checkout Payment Failed", Toast.LENGTH_LONG).show()
-                    Log.e("Checkout", "❌ onError ${component.name}: $checkoutError")
-                }
-            ),
-
-           // flowCoordinators = flowCoordinators
-        )
-
-
-            checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-          val cardComponent = checkoutComponents?.create(ComponentName.Flow)
-                //val cardComponent = checkoutComponents.create(PaymentMethodName.Card)
-           //  val googlePayComponent = checkoutComponents.create(PaymentMethodName.GooglePay)
-
-        withContext(Dispatchers.Main) {
-            containerView.removeAllViews()
-            containerView.addView(cardComponent!!.provideView(containerView))
-
-
-
-
-
-            Log.d("Checkout", "✅ Card & Google Pay views added")
-        }
-        }catch (e : Exception){
-            Toast.makeText(this@CheckActivity,"Please Checkout Payment Failed", Toast.LENGTH_LONG).show()
-            e.stackTrace
-        }
-
-    }
-
-
-    private fun updatePaymentComponentView() {
-        val cardComponent = checkoutComponents?.create(ComponentName.Flow)
-        containerView.removeAllViews()
-        containerView.addView(cardComponent!!.provideView(containerView))
-        Log.d("Checkout", "🔄 Component Re-Attached – No Recreate Done")
-    }
-
-    private suspend fun refreshPaymentSessionMinimal(newSession: PaymentSessionResponse, publicKey: String) {
-        // reuse coordinator if already created
-        if (coordinator == null) {
-            coordinator = GooglePayFlowCoordinator(
-                context = this@CheckActivity,
-                handleActivityResult = { resultCode, data ->
-                    checkoutComponents?.handleActivityResult(resultCode, data)
-                    Log.d("GooglePay", "Activity result: $resultCode")
-                }
-            )
-        }
-
-        val flowCoordinators = mapOf(PaymentMethodName.GooglePay to coordinator!!)
-
-        // build new configuration (keep callbacks same as before)
-        val configuration = CheckoutComponentConfiguration(
-            context = this@CheckActivity,
-            paymentSession = newSession,
-            publicKey = publicKey,
-            environment = Environment.SANDBOX,
             flowCoordinators = flowCoordinators,
-            componentCallback = ComponentCallback(
-                onReady = { component -> Log.d("Checkout","onReady: ${component.name}") },
-                onSubmit = { component -> Log.d("Checkout","onSubmit: ${component.name}") },
-                onSuccess = { component, paymentId ->
-                    Log.d("Checkout","onSuccess: $paymentId")
-                    itemClickedLocation.onITemClick(paymentId)
-                },
-                onError = { component, err ->
-                    Log.e("Checkout","onError: ${err.message}")
-                    Toast.makeText(this@CheckActivity, "Payment failed", Toast.LENGTH_SHORT).show()
-                    // optional: call refreshPaymentSessionMinimal again or reattach view
-                }
-            )
+            environment = if (envValue == "true" || envValue == "1") {
+                Environment.PRODUCTION
+            } else {
+                Environment.SANDBOX
+            }
         )
 
-        // save config
-        lastConfig = configuration
-
-        // create new checkoutComponents from new config (minimal recreate)
-        checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-
-        // create (or recreate) the UI component (Flow)
-        val cardComponent = checkoutComponents?.create(ComponentName.Flow)
-            ?: throw IllegalStateException("Failed to create card flow component")
-
-        // attach view on main thread, try to minimize flicker
-        withContext(Dispatchers.Main) {
-            try {
-                // if a previous view exists, replace it instead of removeAllViews (smoother)
-                val parent = containerView
-                // remove previous view if present
-                currentView?.let { parent.removeView(it) }
-
-                // add new view and keep reference
-                val newView = cardComponent.provideView(parent)
-                parent.addView(newView)
-                currentView = newView
-
-                Log.d("Checkout", "Payment UI attached (minimal recreate).")
-            } catch (ex: Exception) {
-                Log.e("Checkout", "Failed to attach payment view: ${ex.message}")
-                // fallback: full clear & add
-                withContext(Dispatchers.Main) {
-                    containerView.removeAllViews()
-                    containerView.addView(cardComponent.provideView(containerView))
-                    currentView = cardComponent.provideView(containerView)
-                }
-            }
-        }
+        return componentOption to config
     }
-
-
-
-
-    private fun CheckoutFuctionImplement(
-        id: String,
-        paymentSessionToken: String,
-        paymentSessionSecret: String,
-        publicKey: String
-    ) {
-        val containerView = findViewById<FrameLayout>(R.id.checkoutContainer)
-
-        val configuration = CheckoutComponentConfiguration(
-            context = this,
-            paymentSession = PaymentSessionResponse(
-                id = id,
-                paymentSessionToken = paymentSessionToken,
-                paymentSessionSecret = paymentSessionSecret,
-            ),
-            publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
-            environment = Environment.SANDBOX,
-                )
-
-
-
-
-
-
-
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                // --- STEP 1: Create Configuration ---
-                val configuration = CheckoutComponentConfiguration(
-                    context = this@CheckActivity,
-                    paymentSession = PaymentSessionResponse(
-                        id = id,
-                        paymentSessionToken = paymentSessionToken,
-                        paymentSessionSecret = paymentSessionSecret,
-                    ),
-                    publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
-                    environment = Environment.SANDBOX,
-                    componentCallback = ComponentCallback(
-                        onReady = { component ->
-                            println("onReady: ${component.name}")
-                        },
-                        onSubmit = { component ->
-                            println("onSubmit: ${component.name}")
-                        },
-                        onSuccess = { component, paymentId ->
-                            println("✅ onSuccess: ${component.name} - $paymentId")
-
-                            // STEP 3 — handle callback manually here:
-                            val callbackUrl = "https://yourbackend.com/callback?payment_id=$paymentId"
-                            CoroutineScope(Dispatchers.IO).launch {
-                                try {
-                                    val response = URL(callbackUrl).readText()
-                                    Log.d("CheckoutCallback", "Callback response: $response")
-                                } catch (e: Exception) {
-                                    Log.e("CheckoutCallback", "Callback failed", e)
-                                }
-                            }
-                        },
-                        onError = { component, checkoutError ->
-                            Log.e("Checkout", "❌ onError ${component.name}: $checkoutError")
-                        },
-                    )
-                )
-
-                // --- STEP 2: Create Component Factory ---
-                val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-                val cardComponent = checkoutComponents.create(PaymentMethodName.Card)
-
-                // --- STEP 3: Add UI on Main Thread ---
-                withContext(Dispatchers.Main) {
-                    val cardView = cardComponent.provideView(containerView)
-                    containerView.removeAllViews()
-                    containerView.addView(cardView)
-                    Log.d("Checkout", "✅ Card component view added")
-                }
-
-            } catch (checkoutError: CheckoutError) {
-                Log.e("CheckoutError", "Error creating Checkout component", checkoutError)
-            }
-        }
-
-
-//        CoroutineScope(Dispatchers.IO).launch {
-//
-//            try {
-//                val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-//                val flow = checkoutComponents.create(PaymentMethodName.Card)
-//                launch(Dispatchers.Main) {
-//                    flow.provideView(containerView)
-//
-//                    Log.d("Checkout", "Checkout Flow view provided")
-//                    containerView.addView(TextView(this@MainActivity).apply {
-//                        text = "Checkout Card UI yahan appear hoti"
-//                        gravity = Gravity.CENTER
-//                        textSize = 18f
-//                    })
-//                }
-//                val configuration = CheckoutComponentConfiguration(
-//                    context = this,
-//                    paymentSession = PaymentSessionResponse(
-//                        id = "ps_34Pi9dRvt2SA4YqhbODm7lCiS78",
-//                        paymentSessionToken = "YmFzZTY0:eyJpZCI6InBzXzM0UGk5ZFJ2dDJTQTRZcWhiT0RtN2xDaVM3OCIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMCwibG9jYWxlIjoiZW4tR0IiLCJjdXJyZW5jeSI6IkFFRCIsInBheW1lbnRfbWV0aG9kcyI6W3sidHlwZSI6ImNhcmQiLCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sInNjaGVtZV9jaG9pY2VfZW5hYmxlZCI6ZmFsc2UsInN0b3JlX3BheW1lbnRfZGV0YWlscyI6ImRpc2FibGVkIiwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9fSx7InR5cGUiOiJhcHBsZXBheSIsImRpc3BsYXlfbmFtZSI6ImVaaGlyZSIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCIsIm1lcmNoYW50X2NhcGFiaWxpdGllcyI6WyJzdXBwb3J0czNEUyJdLCJzdXBwb3J0ZWRfbmV0d29ya3MiOlsidmlzYSIsIm1hc3RlckNhcmQiLCJhbWV4Il0sInRvdGFsIjp7ImxhYmVsIjoiZVpoaXJlIiwidHlwZSI6ImZpbmFsIiwiYW1vdW50IjoiMSJ9fSx7InR5cGUiOiJnb29nbGVwYXkiLCJtZXJjaGFudCI6eyJpZCI6IjA4MTEzMDg5Mzg2MjY4ODQ5OTgyIiwibmFtZSI6ImVaaGlyZSIsIm9yaWdpbiI6Imh0dHBzOi8vd3d3LmV6aGlyZS5tZSJ9LCJ0cmFuc2FjdGlvbl9pbmZvIjp7InRvdGFsX3ByaWNlX3N0YXR1cyI6IkZJTkFMIiwidG90YWxfcHJpY2UiOiIxIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIn0sImNhcmRfcGFyYW1ldGVycyI6eyJhbGxvd2VkX2F1dGhfbWV0aG9kcyI6WyJQQU5fT05MWSIsIkNSWVBUT0dSQU1fM0RTIl0sImFsbG93ZWRfY2FyZF9uZXR3b3JrcyI6WyJWSVNBIiwiTUFTVEVSQ0FSRCIsIkFNRVgiXX19XSwiZmVhdHVyZV9mbGFncyI6WyJhbmFseXRpY3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwiY2FyZF9maWVsZHNfZW5hYmxlZCIsImdldF93aXRoX3B1YmxpY19rZXlfZW5hYmxlZCIsImxvZ3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwicmlza19qc19lbmFibGVkIiwidXNlX25vbl9iaWNfaWRlYWxfaW50ZWdyYXRpb24iXSwicmlzayI6eyJlbmFibGVkIjpmYWxzZX0sIm1lcmNoYW50X25hbWUiOiJlWmhpcmUiLCJwYXltZW50X3Nlc3Npb25fc2VjcmV0IjoicHNzXzBiYjdiMjBmLWFmODgtNDAzOS04YWYzLWUyOGQxYjI2OTk3OSIsInBheW1lbnRfdHlwZSI6IlJlZ3VsYXIiLCJpbnRlZ3JhdGlvbl9kb21haW4iOiJkZXZpY2VzLmFwaS5zYW5kYm94LmNoZWNrb3V0LmNvbSJ9",
-//                        paymentSessionSecret = "pss_0bb7b20f-af88-4039-8af3-e28d1b269979",
-//                    ),
-//                    publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
-//                    environment = Environment.SANDBOX,
-//
-//
-////                val configuration = CheckoutComponentConfiguration(
-////                    context = this@MainActivity,
-////                    paymentSession = PaymentSessionResponse(
-////                        id = "ps_34Pi9dRvt2SA4YqhbODm7lCiS78",
-////                        paymentSessionToken = "YmFzZTY0:eyJpZCI6InBzXzM0UGk5ZFJ2dDJTQTRZcWhiT0RtN2xDaVM3OCIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMCwibG9jYWxlIjoiZW4tR0IiLCJjdXJyZW5jeSI6IkFFRCIsInBheW1lbnRfbWV0aG9kcyI6W3sidHlwZSI6ImNhcmQiLCJjYXJkX3NjaGVtZXMiOlsiVmlzYSIsIk1hc3RlcmNhcmQiLCJBbWV4Il0sInNjaGVtZV9jaG9pY2VfZW5hYmxlZCI6ZmFsc2UsInN0b3JlX3BheW1lbnRfZGV0YWlscyI6ImRpc2FibGVkIiwiYmlsbGluZ19hZGRyZXNzIjp7ImNpdHkiOiJEdWJhaSIsImNvdW50cnkiOiJBRSJ9fSx7InR5cGUiOiJhcHBsZXBheSIsImRpc3BsYXlfbmFtZSI6ImVaaGlyZSIsImNvdW50cnlfY29kZSI6IkdCIiwiY3VycmVuY3lfY29kZSI6IkFFRCIsIm1lcmNoYW50X2NhcGFiaWxpdGllcyI6WyJzdXBwb3J0czNEUyJdLCJzdXBwb3J0ZWRfbmV0d29ya3MiOlsidmlzYSIsIm1hc3RlckNhcmQiLCJhbWV4Il0sInRvdGFsIjp7ImxhYmVsIjoiZVpoaXJlIiwidHlwZSI6ImZpbmFsIiwiYW1vdW50IjoiMSJ9fSx7InR5cGUiOiJnb29nbGVwYXkiLCJtZXJjaGFudCI6eyJpZCI6IjA4MTEzMDg5Mzg2MjY4ODQ5OTgyIiwibmFtZSI6ImVaaGlyZSIsIm9yaWdpbiI6Imh0dHBzOi8vd3d3LmV6aGlyZS5tZSJ9LCJ0cmFuc2FjdGlvbl9pbmZvIjp7InRvdGFsX3ByaWNlX3N0YXR1cyI6IkZJTkFMIiwidG90YWxfcHJpY2UiOiIxIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIn0sImNhcmRfcGFyYW1ldGVycyI6eyJhbGxvd2VkX2F1dGhfbWV0aG9kcyI6WyJQQU5fT05MWSIsIkNSWVBUT0dSQU1fM0RTIl0sImFsbG93ZWRfY2FyZF9uZXR3b3JrcyI6WyJWSVNBIiwiTUFTVEVSQ0FSRCIsIkFNRVgiXX19XSwiZmVhdHVyZV9mbGFncyI6WyJhbmFseXRpY3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwiY2FyZF9maWVsZHNfZW5hYmxlZCIsImdldF93aXRoX3B1YmxpY19rZXlfZW5hYmxlZCIsImxvZ3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwicmlza19qc19lbmFibGVkIiwidXNlX25vbl9iaWNfaWRlYWxfaW50ZWdyYXRpb24iXSwicmlzayI6eyJlbmFibGVkIjpmYWxzZX0sIm1lcmNoYW50X25hbWUiOiJlWmhpcmUiLCJwYXltZW50X3Nlc3Npb25fc2VjcmV0IjoicHNzXzBiYjdiMjBmLWFmODgtNDAzOS04YWYzLWUyOGQxYjI2OTk3OSIsInBheW1lbnRfdHlwZSI6IlJlZ3VsYXIiLCJpbnRlZ3JhdGlvbl9kb21haW4iOiJkZXZpY2VzLmFwaS5zYW5kYm94LmNoZWNrb3V0LmNvbSJ9",
-////                        paymentSessionSecret = "pss_0bb7b20f-af88-4039-8af3-e28d1b269979"
-////                    ),
-//                    publicKey = "",
-//                    environment = Environment.SANDBOX,
-//                    callbackUrl = CALLBACK_URL,
-//                    flowCoordinators = mapOf(
-//                        PaymentMethodName.GooglePay to googlePayFlowCoordinator
-//                    ),
-//                    componentCallback = ComponentCallback(
-//                        onReady = { component ->
-//                            println("onReady: ${component.name}")
-//                        },
-//                        onSubmit = { component ->
-//                            println("onSubmit: ${component.name}")
-//                        },
-//                        onSuccess = { component, paymentId ->
-//                            println("onSuccess: ${component.name} - $paymentId")
-//                        },
-//                        onError = { component, checkoutError ->
-//                            println("onError ${component.name}: $checkoutError")
-//                        },
-//                    ),
-//                    componentOptions = TODO(),
-//                    locale = TODO(),
-//                    translations = TODO(),
-//                    appearance = TODO(),
-//                )
-//
-////                val configuration = CheckoutComponentConfiguration(
-////                    context = this@MainActivity,
-////                    paymentSession = PaymentSessionResponse(
-////                        id = "",
-////                        paymentSessionToken = "",
-////                        paymentSessionSecret = "",
-////                    ),
-////                    publicKey = "",
-////                    environment = Environment.SANDBOX,
-////                    callbackUrl = "", // 👈 Add this line
-////                    flowCoordinators = googlePayFlowCoordinator.value?.let {
-////                        mapOf(PaymentMethodName.GooglePay to it)
-////                    } ?: emptyMap(),
-////                    componentCallback = ComponentCallback(
-////                        onReady = { component ->
-////                            println("onReady: ${component.name}")
-////                        },
-////                        onSubmit = { component ->
-////                            println("onSubmit: ${component.name}")
-////                        },
-////                        onSuccess = { component, paymentId ->
-////                            println("onSuccess: ${component.name} - $paymentId")
-////                        },
-////                        onError = { component, checkoutError ->
-////                            println("onError ${component.name}: $checkoutError")
-////                        },
-////                    ),
-////                )
-//
-//
-//
-//            } catch (checkoutError: CheckoutError) {
-//                Log.e("CheckoutError", "Error creating Checkout component", checkoutError)
-//            }
-//        }
-
-
-
-//            try {
-//                val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-//                val flow = checkoutComponents.create(ComponentName.Flow)
-//
-//                // Switch to Main thread to update UI
-//                launch(Dispatchers.Main) {
-//                    flow.provideView(containerView)
-//                }
-//
-//            } catch (checkoutError: CheckoutError) {
-//                Log.e("TAG", "CheckoutFuctionImplement: ", checkoutError)
-//            }
-//        }
-
-    }
-
-    private fun setupCheckoutCard() {
-        val containerView = findViewById<FrameLayout>(R.id.checkoutContainer)
-
-        val configuration = CheckoutComponentConfiguration(
-            context = this,
-            paymentSession = PaymentSessionResponse(
-                id = "ps_34QIeTVy3LTlizWwEB4pZAHswyf",
-                paymentSessionToken = "YmFzZTY0:eyJpZCI6InBzXzM0UUllVFZ5M0xUbGl6V3dFQjRwWkFIc3d5ZiIsImVudGl0eV9pZCI6ImVudF83NWN5dm8yZ2c0NGVmYjZkb3drajRkbmdzcSIsImV4cGVyaW1lbnRzIjp7fSwicHJvY2Vzc2luZ19jaGFubmVsX2lkIjoicGNfem5weWhjZHF2bGh1bmo3MjJpN3pncm9vaWkiLCJhbW91bnQiOjEwMDAwLCJsb2NhbGUiOiJlbi1HQiIsImN1cnJlbmN5IjoiQUVEIiwicGF5bWVudF9tZXRob2RzIjpbeyJ0eXBlIjoiY2FyZCIsImNhcmRfc2NoZW1lcyI6WyJWaXNhIiwiTWFzdGVyY2FyZCIsIkFtZXgiXSwic2NoZW1lX2Nob2ljZV9lbmFibGVkIjpmYWxzZSwic3RvcmVfcGF5bWVudF9kZXRhaWxzIjoiZGlzYWJsZWQiLCJiaWxsaW5nX2FkZHJlc3MiOnsiY2l0eSI6IkR1YmFpIiwiY291bnRyeSI6IkFFIn19LHsidHlwZSI6ImFwcGxlcGF5IiwiZGlzcGxheV9uYW1lIjoiZVpoaXJlIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIiwibWVyY2hhbnRfY2FwYWJpbGl0aWVzIjpbInN1cHBvcnRzM0RTIl0sInN1cHBvcnRlZF9uZXR3b3JrcyI6WyJ2aXNhIiwibWFzdGVyQ2FyZCIsImFtZXgiXSwidG90YWwiOnsibGFiZWwiOiJlWmhpcmUiLCJ0eXBlIjoiZmluYWwiLCJhbW91bnQiOiIxMDAifX0seyJ0eXBlIjoiZ29vZ2xlcGF5IiwibWVyY2hhbnQiOnsiaWQiOiIwODExMzA4OTM4NjI2ODg0OTk4MiIsIm5hbWUiOiJlWmhpcmUiLCJvcmlnaW4iOiJodHRwczovL3d3dy5lemhpcmUubWUifSwidHJhbnNhY3Rpb25faW5mbyI6eyJ0b3RhbF9wcmljZV9zdGF0dXMiOiJGSU5BTCIsInRvdGFsX3ByaWNlIjoiMTAwIiwiY291bnRyeV9jb2RlIjoiR0IiLCJjdXJyZW5jeV9jb2RlIjoiQUVEIn0sImNhcmRfcGFyYW1ldGVycyI6eyJhbGxvd2VkX2F1dGhfbWV0aG9kcyI6WyJQQU5fT05MWSIsIkNSWVBUT0dSQU1fM0RTIl0sImFsbG93ZWRfY2FyZF9uZXR3b3JrcyI6WyJWSVNBIiwiTUFTVEVSQ0FSRCIsIkFNRVgiXX19XSwiZmVhdHVyZV9mbGFncyI6WyJhbmFseXRpY3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwiY2FyZF9maWVsZHNfZW5hYmxlZCIsImdldF93aXRoX3B1YmxpY19rZXlfZW5hYmxlZCIsImxvZ3Nfb2JzZXJ2YWJpbGl0eV9lbmFibGVkIiwicmlza19qc19lbmFibGVkIiwidXNlX25vbl9iaWNfaWRlYWxfaW50ZWdyYXRpb24iXSwicmlzayI6eyJlbmFibGVkIjpmYWxzZX0sIm1lcmNoYW50X25hbWUiOiJlWmhpcmUiLCJwYXltZW50X3Nlc3Npb25fc2VjcmV0IjoicHNzX2E3M2RiMzU4LWFmNTMtNGI0MS05OTEyLTEzY2EzYTNlMDAwMCIsInBheW1lbnRfdHlwZSI6IlJlZ3VsYXIiLCJpbnRlZ3JhdGlvbl9kb21haW4iOiJkZXZpY2VzLmFwaS5zYW5kYm94LmNoZWNrb3V0LmNvbSJ9",
-                paymentSessionSecret = "pss_a73db358-af53-4b41-9912-13ca3a3e0000",
-            ),
-            publicKey = "pk_sbox_awubbtkehjl742o3t5v44vngcyu",
-            environment = Environment.SANDBOX,
-        )
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-                val cardComponent = checkoutComponents.create(PaymentMethodName.Card)
-
-                launch(Dispatchers.Main) {
-//                    cardComponent.provideView(containerView)
-                    val view = cardComponent.provideView(containerView)
-                    containerView.removeAllViews()
-                    containerView.addView(view)
-                    Log.d("Checkout", "Card component view added manually")
-                    Log.d("Checkout", "Card component view provided")
-
-                }
-
-
-            } catch (checkoutError: CheckoutError) {
-                Log.e("CheckoutError", "Error creating Checkout component", checkoutError)
-            }
-        }
-
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (::coordinator.isInitialized) {
-            Log.d("TAG", "onActivityResult: ")
-            //coordinator.onActivityResult(requestCode, resultCode, data)
-        }
-    }
-
-    override fun onDataSend(data: HashMap<String, Any>) {
-
-    }
-
-    override fun onITemClick(data: String) {
-        TODO("Not yet implemented")
-    }
-
-//    private suspend fun checkoutWithGooglev2(
-//        id: String,
-//        paymentSessionToken: String,
-//        paymentSessionSecret: String,
-//        publicKey: String
-//    ) {
-//        try {
-//            // ✅ Initialize the coordinator
-//            coordinator = GooglePayFlowCoordinator(
-//                context = this@CheckActivity,
-//                handleActivityResult = { resultCode, data ->
-//                    Log.d("GooglePay", "Activity result received: $resultCode")
-//                }
-//            )
-//
-//            val flowCoordinators = mapOf(
-//                PaymentMethodName.GooglePay to coordinator
-//            )
-//
-//            // ✅ Add Google Pay configuration (IMPORTANT)
-//            val configuration = CheckoutComponentConfiguration(
-//                context = this@CheckActivity,
-//                paymentSession = PaymentSessionResponse(
-//                    id = id,
-//                    paymentSessionToken = paymentSessionToken,
-//                    paymentSessionSecret = paymentSessionSecret
-//                ),
-//                publicKey = publicKey,
-//                environment = Environment.SANDBOX,
-//
-//                googlePayConfiguration = GooglePayConfiguration(
-//                    merchantName = "eZhire Rentals", // 👈 your brand name here
-//                    environment = GooglePayEnvironment.TEST // or PRODUCTION for live
-//                ),
-//
-//                componentCallback = ComponentCallback(
-//                    onReady = { component ->
-//                        Log.d("Checkout", "onReady: ${component.name}")
-//                    },
-//                    onSubmit = { component ->
-//                        Log.d("Checkout", "onSubmit: ${component.name}")
-//                    },
-//                    onSuccess = { component, paymentId ->
-//                        itemClickedLocation.onITemClick(paymentId)
-//                        Log.d("Checkout", "✅ onSuccess: ${component.name} - $paymentId")
-//                    },
-//                    onError = { component, checkoutError ->
-//                        Toast.makeText(
-//                            this@CheckActivity,
-//                            "Please Checkout Payment Failed",
-//                            Toast.LENGTH_LONG
-//                        ).show()
-//                        Log.e("Checkout", "❌ onError ${component.name}: $checkoutError")
-//                    }
-//                ),
-//
-//                flowCoordinators = flowCoordinators
-//            )
-//
-//            val checkoutComponents = CheckoutComponentsFactory(config = configuration).create()
-//            val googlePayComponent = checkoutComponents.create(PaymentMethodName.GooglePay)
-//
-//            withContext(Dispatchers.Main) {
-//                containerView.removeAllViews()
-//
-//                // ✅ Check if Google Pay is available before adding view
-////                googlePayComponent.isReadyToPay(
-////                    onReady = { ready ->
-////                        if (ready) {
-////                            val gPayView = googlePayComponent.provideView(containerView)
-////                            containerView.addView(gPayView)
-////                            Log.d("Checkout", "✅ Google Pay button added")
-////                        } else {
-////                            Log.w("Checkout", "⚠️ Google Pay not available on this device/config")
-////                            Toast.makeText(
-////                                this@CheckActivity,
-////                                "Google Pay not available on this device",
-////                                Toast.LENGTH_SHORT
-////                            ).show()
-////                        }
-////                    },
-////                    onError = { error ->
-////                        Log.e("Checkout", "❌ Google Pay readiness check failed: $error")
-////                    }
-////                )
-//            }
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//        }
-//    }
-
-
-    internal var itemClickedLocation: OnDataPass = object : OnDataPass {
-        override fun onDataSend(data: HashMap<String, Any>) {
-
-        }
-
-        override fun onITemClick(data: String) {
-            print(data)
-            val resultIntent = Intent()
-            resultIntent.putExtra("paymentId", data)
-            setResult(RESULT_OK, resultIntent)
-            finish()
-        }
-
-    }
-
 }
+
