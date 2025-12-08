@@ -44,6 +44,7 @@ import com.checkout.components.interfaces.component.ComponentOption
 import com.checkout.components.interfaces.component.RememberMeConfiguration
 import com.checkout.components.interfaces.error.CheckoutError
 import com.checkout.components.interfaces.model.ComponentName
+import com.checkout.components.interfaces.model.PayRequestPayload
 import com.checkout.components.interfaces.model.PaymentMethodName
 import com.checkout.components.interfaces.model.PaymentSessionResponse
 import com.checkout.components.wallet.wrapper.GooglePayFlowCoordinator
@@ -62,6 +63,7 @@ class MainActivity3 : ComponentActivity() {
 
     // CoroutineScope for UI
     private val uiScope = CoroutineScope(Dispatchers.Main)
+    private var GooglePayEnabled = false
 
     // Activity-level state for Compose
     private var isComponentValid by mutableStateOf(false)
@@ -73,7 +75,7 @@ class MainActivity3 : ComponentActivity() {
 
     internal var itemClickedLocation: OnDataPass = object : OnDataPass {
         override fun onDataSend(data: HashMap<String, Any>) {}
-        override fun onITemClick(data: String) {
+        override fun onITemClick(data: String,Google : Boolean) {
             val resultIntent = Intent()
             resultIntent.putExtra("paymentId", data)
             setResult(RESULT_OK, resultIntent)
@@ -97,11 +99,22 @@ class MainActivity3 : ComponentActivity() {
         },
         onSubmit = { component ->
             Log.d("flow component", "onSubmit ${component.name}")
+            if (component.name == PaymentMethodName.GooglePay) {
+                Log.d("flow component", "Goo")
+                  GooglePayEnabled = true
+                // Your GooglePay logic here
+            }else{
+                GooglePayEnabled = false
+            }
         },
         onSuccess = { component, paymentID ->
             isLoading = false
             payButtonEnabled = true
-            itemClickedLocation.onITemClick(paymentID)
+            itemClickedLocation.onITemClick(paymentID,GooglePayEnabled)
+
+
+
+
         },
         onError = { component, checkoutError ->
             isLoading = false

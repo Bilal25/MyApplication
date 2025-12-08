@@ -73,7 +73,7 @@ class MainActivity2 : ComponentActivity() {
 
     internal var itemClickedLocation: OnDataPass = object : OnDataPass {
         override fun onDataSend(data: HashMap<String, Any>) {}
-        override fun onITemClick(data: String) {
+        override fun onITemClick(data: String,Google : Boolean) {
             val resultIntent = Intent()
             resultIntent.putExtra("paymentId", data)
             setResult(RESULT_OK, resultIntent)
@@ -101,7 +101,7 @@ class MainActivity2 : ComponentActivity() {
         onSuccess = { component, paymentID ->
             isLoading = false
             payButtonEnabled = true
-            itemClickedLocation.onITemClick(paymentID)
+            itemClickedLocation.onITemClick(paymentID,false)
         },
         onError = { component, checkoutError ->
             isLoading = false
@@ -345,144 +345,5 @@ class MainActivity2 : ComponentActivity() {
         }
     }
 
-//    private fun renderContent(
-//        paymentSessionID: String,
-//        paymentSessionToken: String,
-//        paymentSessionSecret: String,
-//        publicKey: String,
-//        email: String,
-//        envValue: String
-//    ) {
-//        setContent {
-//            var flow by remember { mutableStateOf<PaymentMethodComponent?>(null) }
-//            var selectedMethod by remember { mutableStateOf("") }
-//            var isCardAvailable by remember { mutableStateOf(false) }
-//            var showLogo by remember { mutableStateOf(false) }
-//
-//            Box(
-//                modifier = Modifier
-//                    .fillMaxSize()
-//                    .padding(top = 16.dp, start = 16.dp)
-//            ) {
-//
-//                // 🔹 TOP-LEFT CLOSE BUTTON
-//                IconButton(
-//                    onClick = { finish() },         // <-- close activity
-//                    modifier = Modifier.align(Alignment.TopStart)
-//                ) {
-//                    Icon(
-//                        painter = painterResource(id = R.drawable.ic_close),   // your close icon
-//                        contentDescription = "Close"
-//                    )
-//                }
-//                LaunchedEffect(Unit) {
-//                    delay(3000)   // ⬅️ delay time (you can increase/decrease)
-//                    showLogo = true
-//                }
-//                // Auto-select card if session available
-//                LaunchedEffect(Unit) {
-//                    if (paymentSessionID.isNotBlank() && paymentSessionSecret.isNotBlank()) {
-//                        selectedMethod = "card"
-//                    }
-//                }
-//
-//                LaunchedEffect(selectedMethod) {
-//                    if (selectedMethod == "card") {
-//                        val (options, config) = createConfigs(
-//                            paymentSessionID,
-//                            paymentSessionSecret,
-//                            email,
-//                            publicKey,
-//                            envValue
-//                        )
-//                        CoroutineScope(Dispatchers.Main).launch {
-//                            runCatching {
-//                                checkoutComponents = CheckoutComponentsFactory(config).create()
-//                                flow = checkoutComponents.create(ComponentName.Flow, options)
-//
-//                                isCardAvailable = flow?.isAvailable() ?: false
-//                                val isValidStatus = flow?.isValid() ?: false
-//                                isComponentValid = isValidStatus
-//                                payButtonEnabled = isComponentValid
-//
-//                            }.onFailure {
-//                                isComponentValid = false
-//                                payButtonEnabled = false
-//                                Log.e("checkout", "Crash saved: ${it.message}", it)
-//                            }
-//                        }
-//
-////                        CoroutineScope(Dispatchers.IO).launch {
-////                            try {
-////                                checkoutComponents = CheckoutComponentsFactory(config).create()
-////                                flow = checkoutComponents.create(ComponentName.Flow, options)
-////                                isCardAvailable = flow?.isAvailable() ?: false
-////
-////                                val isValidStatus = flow?.isValid() ?: false
-////                                isComponentValid = isValidStatus
-////                                payButtonEnabled = isComponentValid
-////
-////                            } catch (checkoutError: CheckoutError) {
-////                                isComponentValid = false
-////                                payButtonEnabled = false
-////                                Log.e(
-////                                    "flow component error",
-////                                    "Initialization error: ${checkoutError.message}, Details: ${checkoutError.details}"
-////                                )
-////                            }
-////                        }
-//                    }
-//                }
-//
-//                LazyColumn(
-//                    modifier = Modifier
-//                        .fillMaxSize()
-//                        .safeDrawingPadding()
-//                        .padding(16.dp),
-//                    horizontalAlignment = Alignment.CenterHorizontally,
-//                    verticalArrangement = Arrangement.Center
-//                ) {
-//                    item {
-//
-//                        if (showLogo) {
-//                            Image(
-//                                painter = painterResource(id = R.drawable.ic_ezhire_big_logo),
-//                                contentDescription = null,
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .padding(bottom = 26.dp)
-//                                    .height(60.dp)
-//                            )
-//                        }
-//                        if (selectedMethod == "card" && isCardAvailable) {
-//                            flow?.Render()
-//                            Spacer(modifier = Modifier.height(20.dp))
-//
-//                            Button(
-//                                enabled = payButtonEnabled && !isLoading,
-//                                onClick = {
-//                                    uiScope.launch {
-//                                        isLoading = true
-//                                        payButtonEnabled = false
-//                                        flow?.submit() // async
-//                                    }
-//                                },
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .padding(top = 16.dp)
-//                            ) {
-//                                if (isLoading) {
-//                                    CircularProgressIndicator(
-//                                        modifier = Modifier.size(24.dp)
-//                                    )
-//                                } else {
-//                                    Text("Pay Now")
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
+
 }

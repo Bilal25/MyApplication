@@ -65,7 +65,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class PaymentBottomSheet(
-    private val userData: HashMap<String, String>,
+    private val userDataGooglePay: HashMap<String, String>,
     private val onPaymentSuccess: (String) -> Unit
 ) : BottomSheetDialogFragment() {
 
@@ -93,6 +93,13 @@ class PaymentBottomSheet(
         },
         onSubmit = { component ->
             Log.d("flow component", "onSubmit ${component.name}")
+
+            if (component.name == PaymentMethodName.GooglePay) {
+                Log.d("flow component", "Goo")
+                // Your GooglePay logic here
+            }
+
+            dismiss()
         },
         onSuccess = { component, paymentID ->
             isLoading = false
@@ -120,7 +127,7 @@ class PaymentBottomSheet(
 
     companion object {
         private const val ARG_USER_DATA = "userData"
-        lateinit var userData: HashMap<String, String>
+        lateinit var userDataGooglePay: HashMap<String, String>
 
 
     }
@@ -132,7 +139,7 @@ class PaymentBottomSheet(
 
         return ComposeView(requireContext()).apply {
             setContent {
-                PaymentBottomSheetContent(userData)
+                PaymentBottomSheetContent(userDataGooglePay)
             }
         }
     }
