@@ -1,6 +1,7 @@
 package com.example.paymentcheck
 
 import android.app.Dialog
+import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -66,7 +67,8 @@ import kotlinx.coroutines.withContext
 
 class PaymentBottomSheet(
     private val userDataGooglePay2: HashMap<String, String>,
-    private val onPaymentSuccess: (String, Boolean) -> Unit
+    private val onPaymentSuccess: (String, Boolean) -> Unit,
+    private val onDismiss: () -> Unit
 ) : BottomSheetDialogFragment() {
     private var GooglePayEnabled = true
 
@@ -78,7 +80,10 @@ class PaymentBottomSheet(
     private var payButtonEnabled by mutableStateOf(false)
 
     private val uiScope = CoroutineScope(Dispatchers.Main)
-
+    override fun onDismiss(dialog: DialogInterface) {
+        super.onDismiss(dialog)
+        onDismiss()
+    }
     private val customComponentCallback = ComponentCallback(
         onReady = { component ->
             uiScope.launch {
